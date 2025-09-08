@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { intro, outro, select } from "@clack/prompts";
 import { handleInit } from "./commands/init";
 import { handleInstall } from "./commands/install";

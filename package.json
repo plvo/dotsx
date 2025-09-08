@@ -1,10 +1,39 @@
 {
-	"name": "cli",
-	"module": "index.ts",
+	"name": "dotsx",
+	"description": "A CLI tool for managing dotfiles",
+	"version": "1.0.12",
+	"author": "plvo <plvdev@proton.me>",
+	"homepage": "https://github.com/plvo/dotsx",
+	"license": "MIT",
+	"keywords": [
+		"cli",
+		"dotfiles",
+		"management"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/plvo/dotsx.git"
+	},
+	"bugs": {
+		"url": "https://github.com/plvo/dotsx/issues"
+	},
+	"main": "dotsx",
+	"bin": {
+		"dotsx": "./dotsx"
+	},
+	"files": [
+		"dotsx",
+		"README.md"
+	],
+	"engines": {
+		"bun": ">=1.0.0"
+	},
+	"private": false,
 	"type": "module",
-	"private": true,
 	"scripts": {
-		"dev": "bun run src/index.ts"
+		"dev": "bun run src/index.ts",
+		"build": "bun build src/index.ts --outfile dotsx --target bun --production",
+		"prepublishOnly": "bun run build && chmod +x dotsx"
 	},
 	"devDependencies": {
 		"@types/bun": "latest"
@@ -13,7 +42,6 @@
 		"typescript": "^5"
 	},
 	"dependencies": {
-		"@clack/prompts": "^0.11.0",
-		"zod": "^4.1.5"
+		"@clack/prompts": "^0.11.0"
 	}
 }
