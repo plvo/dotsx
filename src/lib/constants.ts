@@ -33,3 +33,25 @@ export const OS_CONFIG: Record<string, Record<string, PackageManagerConfig>> = {
     },
   },
 };
+
+export const FILES_PATH_TO_CHECK: Record<string, string[]> = {
+  'ide/cursor/': [
+    '~/.config/Cursor/User/settings.json',
+    '~/.config/Cursor/User/keybindings.json',
+    '~/.config/Cursor/User/snippets',
+    '~/Library/Application Support/Cursor/User/settings.json',
+    '~/Library/Application Support/Cursor/User/keybindings.json',
+    '~/Library/Application Support/Cursor/User/snippets',
+  ],
+  'ide/vscode/': [
+    '~/.config/Code/User/settings.json',
+    '~/.config/Code/User/keybindings.json',
+    '~/.config/Code/User/snippets',
+    '~/Library/Application Support/Code/User/snippets',
+    '~/Library/Application Support/Code/User/keybindings.json',
+    '~/Library/Application Support/Code/User/settings.json',
+  ],
+  'terminal/.zshrc': ['~/.zshrc', '~/Library/Application Support/Terminal/.zshrc'],
+  'terminal/.bashrc': ['~/.bashrc', '~/Library/Application Support/Terminal/.bashrc'],
+  'terminal/.tmux.conf': ['~/.tmux.conf', '~/Library/Application Support/Terminal/.tmux.conf'],
+};
