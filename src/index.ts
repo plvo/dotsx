@@ -2,8 +2,8 @@
 import { intro, select } from '@clack/prompts';
 import { handleBin } from './commands/bin';
 import { handleInit } from './commands/init';
-import { handleInstall } from './commands/install';
 import { handleLink } from './commands/link';
+import { handlePackage } from './commands/package';
 import { SystemLib } from './lib/system';
 
 async function main() {
@@ -15,7 +15,7 @@ async function main() {
     message: 'What do you want to do?',
     options: [
       { value: 'init', label: '🔧 Initialize dotfiles' },
-      { value: 'install', label: '📦 Install packages' },
+      { value: 'package', label: '📦 Manage packages' },
       { value: 'link', label: '📋 Link files' },
       { value: 'bin', label: '⚡ Manage bin scripts' },
       { value: 'exit', label: '👋 Exit' },
@@ -24,8 +24,8 @@ async function main() {
 
   if (action === 'init') {
     await handleInit();
-  } else if (action === 'install') {
-    await handleInstall();
+  } else if (action === 'package') {
+    await handlePackage();
   } else if (action === 'link') {
     await handleLink();
   } else if (action === 'bin') {

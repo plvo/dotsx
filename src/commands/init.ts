@@ -50,6 +50,7 @@ export async function handleInit() {
 
       if (!FileLib.isFile(targetPath)) {
         FileLib.copyFile(templateFile, targetPath);
+        FileLib.writeToEndOfFile(targetPath, `source ~/.dotsx/bin/_dotsx-bin.aliases`);
       } else {
         console.log(`✅ File already exists: ${targetPath}`);
       }

@@ -76,6 +76,10 @@ export const FileLib = {
     console.log(`✅ Directory copied: ${dest}`);
   },
 
+  writeToEndOfFile(path: string, content: string) {
+    fs.appendFileSync(path, `${content}\n`);
+  },
+
   /**
    * Sync a file from src to dest
    * If dest is a symlink or a file, it will be backed up and replaced by a new symlink or file
@@ -102,5 +106,18 @@ export const FileLib = {
     }
 
     fs.symlinkSync(src, dest);
+  },
+
+  readFileAsArray(path: string): string[] {
+    try {
+      const content = fs.readFileSync(path, 'utf8');
+      return content
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith('#'));
+    } catch (error) {
+      console.error(`❌ Error reading ${path}: ${error}`);
+      return [];
+    }
   },
 };

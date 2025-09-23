@@ -1,11 +1,12 @@
-import { homedir } from 'node:os';
+import os from 'node:os';
+import path from 'node:path';
 
-export const DOTFILES_PATH = `${homedir()}/.dotsx`;
+export const DOTFILES_PATH: string = path.resolve(os.homedir(), '.dotsx');
 
 export const DOTFILE_PATH_DIRS = {
-  CORE: `${DOTFILES_PATH}/core`,
-  IDE: `${DOTFILES_PATH}/ide`,
-  BIN: `${DOTFILES_PATH}/bin`,
-  LINKS: `${DOTFILES_PATH}/links`,
-  TERMINAL: `${DOTFILES_PATH}/terminal`,
+  CORE: path.resolve(DOTFILES_PATH, 'core') satisfies string,
+  IDE: path.resolve(DOTFILES_PATH, 'ide') satisfies string,
+  BIN: path.resolve(DOTFILES_PATH, 'bin') satisfies string,
+  LINKS: path.resolve(DOTFILES_PATH, 'links') satisfies string,
+  TERMINAL: path.resolve(DOTFILES_PATH, 'terminal') satisfies string,
 } as const;

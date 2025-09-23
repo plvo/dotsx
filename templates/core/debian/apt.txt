@@ -1,4 +1,3 @@
-zsh
 tree
 btop
 curl
@@ -7,18 +6,3 @@ unrar
 gzip
 neofetch
 nmap
-openvpn
-wine
-
-make
-git
-gh
-mysql-server
-pipx
-python3-pip
-
-build-essential
-clang
-libssl-dev
-pkg-config
-openssl
