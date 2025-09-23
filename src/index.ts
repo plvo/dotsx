@@ -1,14 +1,15 @@
 #!/usr/bin/env bun
 import { intro, select } from '@clack/prompts';
+import { handleBin } from './commands/bin';
 import { handleInit } from './commands/init';
 import { handleInstall } from './commands/install';
 import { handleLink } from './commands/link';
-import { displayInfo } from './lib/system';
+import { SystemLib } from './lib/system';
 
 async function main() {
   intro('🚀 Dotfiles CLI');
 
-  displayInfo();
+  SystemLib.displayInfo();
 
   const action = await select({
     message: 'What do you want to do?',
@@ -16,6 +17,7 @@ async function main() {
       { value: 'init', label: '🔧 Initialize dotfiles' },
       { value: 'install', label: '📦 Install packages' },
       { value: 'link', label: '📋 Link files' },
+      { value: 'bin', label: '⚡ Manage bin scripts' },
       { value: 'exit', label: '👋 Exit' },
     ],
   });
@@ -26,6 +28,8 @@ async function main() {
     await handleInstall();
   } else if (action === 'link') {
     await handleLink();
+  } else if (action === 'bin') {
+    await handleBin();
   }
 }
 

@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { confirm, select, text } from '@clack/prompts';
 import { DOTFILE_PATH_DIRS } from '@/lib/constants';
+import { FileLib } from '@/lib/file';
 
 export async function handleLink() {
   const action = await select({
@@ -64,11 +65,9 @@ async function addLink() {
 
   // Copy to links and create symlink
   if (statSync(targetPath).isDirectory()) {
-    const { copyDirectory } = await import('@/lib/file');
-    copyDirectory(targetPath, linkPath);
+    FileLib.copyDirectory(targetPath, linkPath);
   } else {
-    const { copyFileSync } = await import('node:fs');
-    copyFileSync(targetPath, linkPath);
+    FileLib.copyFile(targetPath, linkPath);
   }
 
   rmSync(targetPath, { recursive: true, force: true });

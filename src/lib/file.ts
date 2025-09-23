@@ -1,29 +1,106 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import fs from 'node:fs';
+import path from 'node:path';
 
-export function copyDirectory(src: string, dest: string) {
-  // Create destination directory if it doesn't exist
-  if (!existsSync(dest)) {
-    mkdirSync(dest, { recursive: true });
-  }
+export const FileLib = {
+  isPathExists(path: string) {
+    return fs.existsSync(path) || false;
+  },
 
-  for (const item of readdirSync(src)) {
-    const srcPath = resolve(src, item);
-    const destPath = resolve(dest, item);
+  isFile(path: string) {
+    if (!this.isPathExists(path)) return false;
+    return fs.statSync(path).isFile() || false;
+  },
 
-    const stat = statSync(srcPath);
+  isDirectory(path: string) {
+    if (!this.isPathExists(path)) return false;
+    return fs.statSync(path).isDirectory() || false;
+  },
 
-    if (stat.isDirectory()) {
-      // Create destination directory and copy recursively
-      copyDirectory(srcPath, destPath);
-    } else {
-      // Copy the file
-      try {
-        copyFileSync(srcPath, destPath);
-        console.log(`✅ File copied: ${item}`);
-      } catch (err) {
-        console.error(`❌ Error copying file ${item}: ${err}`);
+  isSymLink(path: string) {
+    if (!this.isPathExists(path)) return false;
+    return fs.lstatSync(path).isSymbolicLink() || false;
+  },
+
+  isSymLinkContentCorrect(src: string, dest: string) {
+    if (!this.isPathExists(dest)) return false;
+    if (!this.isSymLink(dest)) return false;
+    return fs.readlinkSync(dest) === src;
+  },
+
+  createFile(path: string) {
+    if (!this.isPathExists(path)) {
+      fs.writeFileSync(path, '');
+    }
+  },
+
+  createDirectory(path: string) {
+    if (!this.isPathExists(path)) {
+      fs.mkdirSync(path, { recursive: true });
+    }
+  },
+
+  copyFile(src: string, dest: string) {
+    try {
+      if (!this.isFile(src)) {
+        this.createFile(src);
+      }
+      fs.copyFileSync(src, dest);
+      console.log(`✅ File copied: ${dest}`);
+    } catch (error) {
+      console.error(`❌ Error copying file: ${error}`);
+    }
+  },
+
+  copyDirectory(src: string, dest: string) {
+    if (!this.isPathExists(dest)) {
+      this.createDirectory(dest);
+    }
+
+    for (const item of fs.readdirSync(src)) {
+      const srcPath = path.resolve(src, item);
+      const destPath = path.resolve(dest, item);
+
+      const stat = fs.statSync(srcPath);
+
+      if (stat.isDirectory()) {
+        this.copyDirectory(srcPath, destPath);
+      } else {
+        try {
+          this.copyFile(srcPath, destPath);
+        } catch (err) {
+          console.error(`❌ Error copying file ${item}: ${err}`);
+        }
       }
     }
-  }
-}
+
+    console.log(`✅ Directory copied: ${dest}`);
+  },
+
+  /**
+   * Sync a file from src to dest
+   * If dest is a symlink or a file, it will be backed up and replaced by a new symlink or file
+   */
+  safeSymlink(src: string, dest: string) {
+    if (this.isPathExists(dest)) {
+      const backupPath = `${dest}.dotsx.backup`;
+
+      if (fs.lstatSync(dest).isSymbolicLink()) {
+        // if it's a symlink → read the real path
+        const realPath = fs.readlinkSync(dest);
+        const content = fs.readFileSync(realPath);
+        fs.writeFileSync(backupPath, content);
+      } else {
+        // if it's a normal file → read directly
+        const content = fs.readFileSync(dest);
+        fs.writeFileSync(backupPath, content);
+      }
+
+      fs.unlinkSync(dest); // delete the old one
+
+      console.log(`✅ Backup file created: ${backupPath}`);
+      console.log(`✅ Deleted old file: ${dest}`);
+    }
+
+    fs.symlinkSync(src, dest);
+  },
+};
