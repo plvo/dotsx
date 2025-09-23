@@ -1,47 +1,52 @@
 {
-	"name": "dotsx",
-	"description": "A CLI tool for managing dotfiles",
-	"version": "1.0.12",
-	"author": "plvo <plvdev@proton.me>",
-	"homepage": "https://github.com/plvo/dotsx",
-	"license": "MIT",
-	"keywords": [
-		"cli",
-		"dotfiles",
-		"management"
-	],
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/plvo/dotsx.git"
-	},
-	"bugs": {
-		"url": "https://github.com/plvo/dotsx/issues"
-	},
-	"main": "dotsx",
-	"bin": {
-		"dotsx": "./dotsx"
-	},
-	"files": [
-		"dotsx",
-		"README.md"
-	],
-	"engines": {
-		"bun": ">=1.0.0"
-	},
-	"private": false,
-	"type": "module",
-	"scripts": {
-		"dev": "bun run src/index.ts",
-		"build": "bun build src/index.ts --outfile dotsx --target bun --production",
-		"prepublishOnly": "bun run build && chmod +x dotsx"
-	},
-	"devDependencies": {
-		"@types/bun": "latest"
-	},
-	"peerDependencies": {
-		"typescript": "^5"
-	},
-	"dependencies": {
-		"@clack/prompts": "^0.11.0"
-	}
+  "name": "dotsx",
+  "description": "A CLI tool for managing dotfiles",
+  "version": "1.0.12",
+  "author": "plvo <plvdev@proton.me>",
+  "homepage": "https://github.com/plvo/dotsx",
+  "license": "MIT",
+  "keywords": [
+    "cli",
+    "dotfiles",
+    "management"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/plvo/dotsx.git"
+  },
+  "bugs": {
+    "url": "https://github.com/plvo/dotsx/issues"
+  },
+  "main": "dotsx",
+  "bin": {
+    "dotsx": "./dotsx"
+  },
+  "files": [
+    "dotsx",
+    "README.md"
+  ],
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outfile dotsx --target bun --production",
+    "prepublishOnly": "bun run build && chmod +x dotsx",
+
+    "lint": "biome check --write",
+    "format": "biome format --write",
+    "check": "biome check"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.4",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0"
+  }
 }
