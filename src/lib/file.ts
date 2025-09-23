@@ -89,6 +89,11 @@ export const FileLib = {
     fs.chmodSync(path, 0o755);
   },
 
+  deleteFilenameExtension(filename: string): string {
+    const index = filename.split('').reverse().join('').indexOf('.');
+    return index !== -1 ? filename.substring(0, filename.length - index - 1) : filename;
+  },
+
   /**
    * Sync a file from src to dest
    * If dest is a symlink or a file, it will be backed up and replaced by a new symlink or file

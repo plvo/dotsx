@@ -15,6 +15,8 @@ export const BinCommand = {
 
     if (!FileLib.isFile(BIN_ALIAS_FILE)) {
       console.log(`❌ File ${BIN_ALIAS_FILE} does not exist`);
+      FileLib.createFile(BIN_ALIAS_FILE);
+      console.log(`✅ File ${BIN_ALIAS_FILE} created, relaunch the command to continue`);
       return;
     }
 
@@ -28,34 +30,38 @@ export const BinCommand = {
     }
 
     const scriptsData = scriptFiles.map((script) => {
+      const scriptName = FileLib.deleteFilenameExtension(script);
       const scriptPath = resolve(DOTFILE_PATH_DIRS.BIN, script);
+
       const isExecutable = FileLib.isExecutable(scriptPath);
-      const hasAlias = this.checkAliasInFile(script);
+      const hasAlias = this.checkAliasInFile(scriptName);
 
-      console.log(`- ${script} \t ${isExecutable ? '✅' : '❌'} Executable \t ${hasAlias ? '✅' : '❌'} Alias`);
+      console.log(`- ${scriptName} \t ${isExecutable ? '✅' : '❌'} Executable \t ${hasAlias ? '✅' : '❌'} Alias`);
 
-      return { script, isExecutable, hasAlias };
+      return { scriptName, scriptPath, isExecutable, hasAlias };
     });
+
+    if (scriptsData.every((script) => script.isExecutable && script.hasAlias)) {
+      console.log('\n✅ All scripts are already configured');
+      return;
+    }
 
     const shouldSetup = await confirm({
       message: 'Are you sure you want to setup not configured bin scripts?',
       initialValue: false,
     });
 
-    if (!shouldSetup) {
-      console.log('ℹ️ Aborting setup');
-      return;
-    }
+    if (!shouldSetup) return;
 
     scriptsData.forEach((script) => {
       if (!script.hasAlias) {
-        this.addAlias(script.script);
-        console.log(`✅ ${script.script} is now aliased`);
+        this.addAlias(script.scriptName);
+        console.log(`✅ ${script.scriptName} is now aliased`);
       }
 
       if (!script.isExecutable) {
-        FileLib.makeExecutable(script.script);
-        console.log(`✅ ${script.script} is now executable`);
+        FileLib.makeExecutable(script.scriptPath);
+        console.log(`✅ ${script.scriptName} is now executable`);
       }
     });
   },
@@ -68,13 +74,9 @@ export const BinCommand = {
     return FileLib.readDirectory(DOTFILE_PATH_DIRS.BIN)
       .filter((file) => {
         const filePath = resolve(DOTFILE_PATH_DIRS.BIN, file);
-
         if (!FileLib.isFile(filePath)) return false;
-
         return FileLib.isExecutable(filePath);
       })
-      .map((file) => file?.split('.')[0])
-      .filter((file) => file !== undefined)
       .sort();
   },
 
@@ -96,10 +98,8 @@ export const BinCommand = {
   },
 
   checkAliasInFile(scriptName: string): boolean {
-    const binAliasFile = FileLib.readFile(BIN_ALIAS_FILE);
-
     try {
-      const content = FileLib.readFile(binAliasFile);
+      const content = FileLib.readFile(BIN_ALIAS_FILE);
       const aliasPattern = new RegExp(`alias\\s+${scriptName}=`, 'm');
       return aliasPattern.test(content);
     } catch {
