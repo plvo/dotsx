@@ -163,4 +163,11 @@ export const FileLib = {
   getDisplayPath(inputPath: string): string {
     return inputPath.replace(homedir(), '~');
   },
+
+  deleteDirectory(path: string) {
+    if (this.isDirectory(path)) {
+      fs.rmdirSync(path, { recursive: true });
+      console.log(`✅ Directory deleted: ${path}`);
+    }
+  },
 };

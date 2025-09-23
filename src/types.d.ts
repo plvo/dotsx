@@ -7,6 +7,13 @@ interface SystemInfo {
   dotfilesPath: string;
 }
 
+interface PackageManagerConfig {
+  packages: string;
+  install: string;
+  remove: string;
+  status: string;
+}
+
 type CliCommand = {
   execute: () => Promise<void>;
   [key: string]: () => unknown;

@@ -3,7 +3,7 @@ import { confirm, select, text } from '@clack/prompts';
 import { DOTX_DIR } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 
-export const LinkCommand = {
+export const linkCommand = {
   async execute() {
     const allLinks = await this.checkStatus();
 
@@ -95,7 +95,7 @@ export const LinkCommand = {
   },
 
   getSymlinks(): Array<{ linkPath: string; targetPath: string }> {
-    if (!FileLib.isDirectory(DOTX_DIR.LINKS)) return [];
+    if (!FileLib.isDirectory(DOTX_DIR.SYMLINKS)) return [];
 
     const scan = (dir: string, rel = ''): Array<{ linkPath: string; targetPath: string }> => {
       const results: Array<{ linkPath: string; targetPath: string }> = [];
@@ -117,15 +117,15 @@ export const LinkCommand = {
       return results;
     };
 
-    return scan(DOTX_DIR.LINKS);
+    return scan(DOTX_DIR.SYMLINKS);
   },
 
   getLinkPath(systemPath: string): string {
     const displayPath = FileLib.getDisplayPath(systemPath);
     if (displayPath.startsWith('~')) {
-      return resolve(DOTX_DIR.LINKS, displayPath);
+      return resolve(DOTX_DIR.SYMLINKS, displayPath);
     }
-    return resolve(DOTX_DIR.LINKS, systemPath.startsWith('/') ? systemPath.slice(1) : systemPath);
+    return resolve(DOTX_DIR.SYMLINKS, systemPath.startsWith('/') ? systemPath.slice(1) : systemPath);
   },
 
   getTargetPath(relativePath: string): string {

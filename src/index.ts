@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 
 import { intro, select } from '@clack/prompts';
-import { BinCommand } from './commands/bin';
-import { handleInit } from './commands/init';
-import { LinkCommand } from './commands/link';
-import { handlePackage } from './commands/package';
+import { binCommand } from './commands/bin';
+import { initCommand } from './commands/init';
+import { linkCommand } from './commands/link';
+import { packageCommand } from './commands/package';
 import { SystemLib } from './lib/system';
 
 async function main() {
@@ -32,13 +32,13 @@ async function main() {
   });
 
   if (action === 'init') {
-    await handleInit();
+    await initCommand.execute();
   } else if (action === 'package') {
-    await handlePackage();
+    await packageCommand.execute();
   } else if (action === 'link') {
-    await LinkCommand.execute();
+    await linkCommand.execute();
   } else if (action === 'bin') {
-    await BinCommand.execute();
+    await binCommand.execute();
   }
 }
 

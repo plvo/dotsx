@@ -4,7 +4,7 @@ import { DOTX_DIR, DOTX_FILE } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { SystemLib } from '@/lib/system';
 
-export const BinCommand = {
+export const binCommand = {
   async execute() {
     if (!FileLib.isDirectory(DOTX_DIR.BIN)) {
       console.log(`❌ Directory ${DOTX_DIR.BIN} does not exist`);
