@@ -28,6 +28,12 @@ export async function handleInit() {
     ],
   });
 
+  for (const directory of Object.values(DOTFILE_PATH_DIRS)) {
+    if (!FileLib.isDirectory(directory)) {
+      FileLib.createDirectory(directory);
+    }
+  }
+
   if (typeof os === 'string') {
     const targetPath = resolve(DOTFILE_PATH_DIRS.CORE, os);
     const templateDir = resolve(process.cwd(), `templates/core/${os}`);
@@ -72,7 +78,6 @@ export async function handleInit() {
 
   try {
     console.log(`\n🎉 Dotfiles initialized in: ${DOTFILES_PATH}`);
-    console.log('💡 You can now use the installation commands!');
   } catch (error) {
     console.error(`❌ Error during initialization: ${String(error)}`);
   }

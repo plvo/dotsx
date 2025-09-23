@@ -21,6 +21,11 @@ export const FileLib = {
     return fs.lstatSync(path).isSymbolicLink() || false;
   },
 
+  isExecutable(path: string) {
+    if (!this.isFile(path)) return false;
+    return (fs.statSync(path).mode & 0o100) !== 0 || false;
+  },
+
   isSymLinkContentCorrect(src: string, dest: string) {
     if (!this.isPathExists(dest)) return false;
     if (!this.isSymLink(dest)) return false;
@@ -36,6 +41,7 @@ export const FileLib = {
   createDirectory(path: string) {
     if (!this.isPathExists(path)) {
       fs.mkdirSync(path, { recursive: true });
+      console.log(`✅ Directory created: ${path}`);
     }
   },
 
@@ -72,12 +78,15 @@ export const FileLib = {
         }
       }
     }
-
-    console.log(`✅ Directory copied: ${dest}`);
   },
 
   writeToEndOfFile(path: string, content: string) {
     fs.appendFileSync(path, `${content}\n`);
+  },
+
+  makeExecutable(path: string) {
+    if (!this.isFile(path)) return;
+    fs.chmodSync(path, 0o755);
   },
 
   /**
@@ -108,9 +117,13 @@ export const FileLib = {
     fs.symlinkSync(src, dest);
   },
 
+  readFile(path: string): string {
+    return fs.readFileSync(path, 'utf8');
+  },
+
   readFileAsArray(path: string): string[] {
     try {
-      const content = fs.readFileSync(path, 'utf8');
+      const content = this.readFile(path);
       return content
         .split('\n')
         .map((line) => line.trim())
@@ -119,5 +132,10 @@ export const FileLib = {
       console.error(`❌ Error reading ${path}: ${error}`);
       return [];
     }
+  },
+
+  readDirectory(path: string): string[] {
+    if (!this.isDirectory(path)) return [];
+    return fs.readdirSync(path);
   },
 };

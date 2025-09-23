@@ -1,11 +1,9 @@
 import { readdirSync } from 'node:fs';
 import { select } from '@clack/prompts';
 import { DOTFILE_PATH_DIRS } from '@/lib/constants';
-import { handleAptPackages, handleSnapPackages } from './debian';
+import { DebianApt, DebianSnap } from './debian';
 
 export async function handlePackage() {
-  console.log('\n📦 Package Management');
-  console.log('═'.repeat(50));
   const availablePackages = readdirSync(DOTFILE_PATH_DIRS.CORE);
 
   console.log(`Available distro packages: ${availablePackages.join(', ')}`);
@@ -28,9 +26,9 @@ export async function handlePackage() {
     });
 
     if (selectedInstaller === 'apt') {
-      await handleAptPackages();
+      await DebianApt.command();
     } else if (selectedInstaller === 'snap') {
-      await handleSnapPackages();
+      await DebianSnap.command();
     }
   }
 }

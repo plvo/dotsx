@@ -1,24 +1,33 @@
 #!/usr/bin/env bun
+
 import { intro, select } from '@clack/prompts';
-import { handleBin } from './commands/bin';
+import { BinCommand } from './commands/bin';
 import { handleInit } from './commands/init';
 import { handleLink } from './commands/link';
 import { handlePackage } from './commands/package';
 import { SystemLib } from './lib/system';
 
 async function main() {
-  intro('🚀 Dotfiles CLI');
+  intro('🚀 DotsX CLI');
 
   SystemLib.displayInfo();
+
+  const isInitialized = SystemLib.isInitialized();
+
+  console.log(isInitialized ? '✅ DotsX initialized' : '❌ DotsX not initialized');
 
   const action = await select({
     message: 'What do you want to do?',
     options: [
-      { value: 'init', label: '🔧 Initialize dotfiles' },
-      { value: 'package', label: '📦 Manage packages' },
-      { value: 'link', label: '📋 Link files' },
-      { value: 'bin', label: '⚡ Manage bin scripts' },
-      { value: 'exit', label: '👋 Exit' },
+      { value: 'init', label: '🔧 Initialize ~/.dotsx' },
+      ...(isInitialized
+        ? [
+            { value: 'package', label: '📦 Manage packages' },
+            { value: 'link', label: '📋 Link files' },
+            { value: 'bin', label: '⚡ Manage bin scripts' },
+            { value: 'exit', label: '👋 Exit' },
+          ]
+        : []),
     ],
   });
 
@@ -29,7 +38,7 @@ async function main() {
   } else if (action === 'link') {
     await handleLink();
   } else if (action === 'bin') {
-    await handleBin();
+    await BinCommand.execute();
   }
 }
 
