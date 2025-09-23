@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { multiselect, select } from '@clack/prompts';
-import { DOTFILE_PATH_DIRS, DOTFILES_PATH } from '@/lib/constants';
+import { DOTX_DIR, DOTX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 
 export async function handleInit() {
@@ -28,14 +28,14 @@ export async function handleInit() {
     ],
   });
 
-  for (const directory of Object.values(DOTFILE_PATH_DIRS)) {
+  for (const directory of Object.values(DOTX_DIR)) {
     if (!FileLib.isDirectory(directory)) {
       FileLib.createDirectory(directory);
     }
   }
 
   if (typeof os === 'string') {
-    const targetPath = resolve(DOTFILE_PATH_DIRS.CORE, os);
+    const targetPath = resolve(DOTX_DIR.CORE, os);
     const templateDir = resolve(process.cwd(), `templates/core/${os}`);
 
     if (!FileLib.isDirectory(targetPath)) {
@@ -46,12 +46,12 @@ export async function handleInit() {
   }
 
   if (Array.isArray(terminals)) {
-    if (!FileLib.isDirectory(DOTFILE_PATH_DIRS.TERMINAL)) {
-      FileLib.createDirectory(DOTFILE_PATH_DIRS.TERMINAL);
+    if (!FileLib.isDirectory(DOTX_DIR.TERMINAL)) {
+      FileLib.createDirectory(DOTX_DIR.TERMINAL);
     }
 
     for (const terminal of terminals) {
-      const targetPath = resolve(DOTFILE_PATH_DIRS.TERMINAL, terminal);
+      const targetPath = resolve(DOTX_DIR.TERMINAL, terminal);
       const templateFile = resolve(process.cwd(), `templates/terminal/${terminal}`);
 
       if (!FileLib.isFile(targetPath)) {
@@ -65,7 +65,7 @@ export async function handleInit() {
 
   if (Array.isArray(ides)) {
     for (const ide of ides) {
-      const targetPath = resolve(DOTFILE_PATH_DIRS.IDE, ide);
+      const targetPath = resolve(DOTX_DIR.IDE, ide);
       const templateDir = resolve(process.cwd(), `templates/ide/${ide}`);
 
       if (!FileLib.isDirectory(targetPath)) {
@@ -77,7 +77,7 @@ export async function handleInit() {
   }
 
   try {
-    console.log(`\n🎉 Dotfiles initialized in: ${DOTFILES_PATH}`);
+    console.log(`\n🎉 Dotfiles initialized in: ${DOTX_PATH}`);
   } catch (error) {
     console.error(`❌ Error during initialization: ${String(error)}`);
   }

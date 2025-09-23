@@ -1,165 +1,137 @@
-import { existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, rmSync, statSync, symlinkSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { confirm, select, text } from '@clack/prompts';
-import { DOTFILE_PATH_DIRS } from '@/lib/constants';
+import { DOTX_DIR } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 
-export async function handleLink() {
-  const action = await select({
-    message: 'What do you want to do with links?',
-    options: [
-      { value: 'status', label: '📋 Check link status' },
-      { value: 'add', label: '➕ Add new link' },
-      { value: 'sync', label: '🔄 Sync all links' },
-    ],
-  });
+export const LinkCommand = {
+  async execute() {
+    const allLinks = await this.checkStatus();
 
-  if (action === 'status') await checkStatus();
-  else if (action === 'add') await addLink();
-  else if (action === 'sync') await syncLinks();
-}
+    const action = await select({
+      message: 'What do you want to do with links?',
+      options: [
+        { value: 'add', label: '➕ Add new link' },
+        { value: 'sync', label: '🔄 Sync all links' },
+      ],
+    });
 
-async function checkStatus() {
-  console.log('\n📋 Links Status');
-  console.log('═'.repeat(30));
+    if (action === 'add') await this.addLink();
+    else if (action === 'sync') await this.syncLinks(allLinks);
+  },
 
-  const links = getLinks();
-  if (links.length === 0) {
-    console.log('ℹ️ No links found');
-    return;
-  }
+  async addLink() {
+    const input = await text({
+      message: 'Path to link:',
+      placeholder: 'relative or absolute path',
+      validate: (v) => (v && FileLib.isPathExists(FileLib.expandPath(v)) ? undefined : "File doesn't exist"),
+    });
 
-  let correct = 0;
-  for (const { linkPath, targetPath } of links) {
-    const isCorrect = checkLink(linkPath, targetPath);
-    const display = targetPath.replace(homedir(), '~');
+    if (!input) return;
 
-    if (isCorrect) {
-      console.log(`✅ ${display}`);
-      correct++;
+    const targetPath = FileLib.expandPath(String(input));
+    const linkPath = this.getLinkPath(targetPath);
+
+    FileLib.createDirectory(dirname(linkPath));
+
+    if (FileLib.isDirectory(targetPath)) {
+      FileLib.copyDirectory(targetPath, linkPath);
     } else {
-      console.log(`❌ ${display}`);
+      FileLib.copyFile(targetPath, linkPath);
     }
-  }
 
-  console.log(`\n${correct}/${links.length} links correct`);
-}
+    FileLib.safeSymlink(linkPath, targetPath);
+    console.log(`✅ Added: ${String(input)}`);
+  },
 
-async function addLink() {
-  console.log('\n➕ Add Link');
-
-  const input = await text({
-    message: 'Path to link:',
-    placeholder: '~/.zshrc or /usr/local/bin/script',
-    validate: (v) => (v && existsSync(expandPath(v)) ? undefined : "File doesn't exist"),
-  });
-
-  if (!input) return;
-
-  const targetPath = expandPath(String(input));
-  const linkPath = getLinkPath(targetPath);
-
-  // Create link directory
-  mkdirSync(dirname(linkPath), { recursive: true });
-
-  // Copy to links and create symlink
-  if (statSync(targetPath).isDirectory()) {
-    FileLib.copyDirectory(targetPath, linkPath);
-  } else {
-    FileLib.copyFile(targetPath, linkPath);
-  }
-
-  rmSync(targetPath, { recursive: true, force: true });
-  symlinkSync(linkPath, targetPath);
-
-  console.log(`✅ Added: ${String(input)}`);
-}
-
-async function syncLinks() {
-  console.log('\n🔄 Sync Links');
-
-  const links = getLinks();
-  const broken = links.filter(({ linkPath, targetPath }) => !checkLink(linkPath, targetPath));
-
-  if (broken.length === 0) {
-    console.log('✅ All links correct');
-    return;
-  }
-
-  console.log(`\n⚠️ ${broken.length} broken links:`);
-  broken.forEach(({ targetPath }) => {
-    console.log(`   ${targetPath.replace(homedir(), '~')}`);
-  });
-
-  const proceed = await confirm({ message: '\nFix all broken links?' });
-  if (!proceed) return;
-
-  let fixed = 0;
-  for (const { linkPath, targetPath } of broken) {
-    try {
-      if (existsSync(targetPath)) rmSync(targetPath, { recursive: true, force: true });
-      mkdirSync(dirname(targetPath), { recursive: true });
-      symlinkSync(linkPath, targetPath);
-      console.log(`✅ ${targetPath.replace(homedir(), '~')}`);
-      fixed++;
-    } catch (err) {
-      console.log(`❌ ${targetPath.replace(homedir(), '~')}: ${err}`);
+  async syncLinks(links: AllLinks) {
+    if (links.incorrectSymlinks.length === 0) {
+      console.log('✅ All links correct');
+      return;
     }
-  }
 
-  console.log(`\n🎉 Fixed ${fixed}/${broken.length} links`);
-}
+    const proceed = await confirm({ message: '\nSync all broken links?' });
+    if (!proceed) return;
 
-function getLinks(): Array<{ linkPath: string; targetPath: string }> {
-  if (!existsSync(DOTFILE_PATH_DIRS.LINKS)) return [];
-
-  const scan = (dir: string, rel = ''): Array<{ linkPath: string; targetPath: string }> => {
-    const results: Array<{ linkPath: string; targetPath: string }> = [];
-
-    for (const item of readdirSync(dir)) {
-      const fullPath = resolve(dir, item);
-      const relPath = rel ? `${rel}/${item}` : item;
-
-      if (statSync(fullPath).isDirectory()) {
-        results.push(...scan(fullPath, relPath));
-      } else {
-        results.push({
-          linkPath: fullPath,
-          targetPath: getTargetPath(relPath),
-        });
+    let fixed = 0;
+    for (const { linkPath, targetPath } of links.incorrectSymlinks) {
+      try {
+        FileLib.createDirectory(dirname(targetPath));
+        FileLib.safeSymlink(linkPath, targetPath);
+        console.log(`✅ ${FileLib.getDisplayPath(targetPath)}`);
+        fixed++;
+      } catch (err) {
+        console.log(`❌ ${FileLib.getDisplayPath(targetPath)}: ${err}`);
       }
     }
 
-    return results;
-  };
+    console.log(`\n🎉 Fixed ${fixed}/${links.incorrectSymlinks.length} links`);
+  },
 
-  return scan(DOTFILE_PATH_DIRS.LINKS);
-}
+  async checkStatus() {
+    const links = this.getSymlinks();
 
-function checkLink(linkPath: string, targetPath: string): boolean {
-  if (!existsSync(targetPath)) return false;
-  if (!lstatSync(targetPath).isSymbolicLink()) return false;
+    if (links.length === 0) {
+      return { correctSymlinks: [], incorrectSymlinks: [] };
+    }
 
-  const actualTarget = readlinkSync(targetPath);
-  return resolve(dirname(targetPath), actualTarget) === linkPath;
-}
+    const correctSymlinks = [];
+    const incorrectSymlinks = [];
 
-function getLinkPath(systemPath: string): string {
-  const home = homedir();
-  if (systemPath.startsWith(home)) {
-    return resolve(DOTFILE_PATH_DIRS.LINKS, `~${systemPath.slice(home.length)}`);
-  }
-  return resolve(DOTFILE_PATH_DIRS.LINKS, systemPath.startsWith('/') ? systemPath.slice(1) : systemPath);
-}
+    for (const { linkPath, targetPath } of links) {
+      const displayPath = FileLib.getDisplayPath(targetPath);
+      const isCorrect = FileLib.isSymLinkContentCorrect(linkPath, targetPath);
+      if (isCorrect) {
+        correctSymlinks.push({ linkPath, targetPath });
+        console.log(`✅ ${displayPath}`);
+      } else {
+        incorrectSymlinks.push({ linkPath, targetPath });
+        console.log(`❌ ${displayPath}`);
+      }
+    }
 
-function getTargetPath(relativePath: string): string {
-  if (relativePath.startsWith('~/')) {
-    return resolve(homedir(), relativePath.slice(2));
-  }
-  return `/${relativePath}`;
-}
+    console.log(`\n${correctSymlinks.length}/${links.length} links correct`);
 
-function expandPath(path: string): string {
-  return path.startsWith('~/') ? resolve(homedir(), path.slice(2)) : path;
-}
+    return { correctSymlinks, incorrectSymlinks };
+  },
+
+  getSymlinks(): Array<{ linkPath: string; targetPath: string }> {
+    if (!FileLib.isDirectory(DOTX_DIR.LINKS)) return [];
+
+    const scan = (dir: string, rel = ''): Array<{ linkPath: string; targetPath: string }> => {
+      const results: Array<{ linkPath: string; targetPath: string }> = [];
+
+      for (const item of FileLib.readDirectory(dir)) {
+        const fullPath = resolve(dir, item);
+        const relPath = rel ? `${rel}/${item}` : item;
+
+        if (FileLib.isDirectory(fullPath)) {
+          results.push(...scan(fullPath, relPath));
+        } else {
+          results.push({
+            linkPath: fullPath,
+            targetPath: this.getTargetPath(relPath),
+          });
+        }
+      }
+
+      return results;
+    };
+
+    return scan(DOTX_DIR.LINKS);
+  },
+
+  getLinkPath(systemPath: string): string {
+    const displayPath = FileLib.getDisplayPath(systemPath);
+    if (displayPath.startsWith('~')) {
+      return resolve(DOTX_DIR.LINKS, displayPath);
+    }
+    return resolve(DOTX_DIR.LINKS, systemPath.startsWith('/') ? systemPath.slice(1) : systemPath);
+  },
+
+  getTargetPath(relativePath: string): string {
+    if (relativePath.startsWith('~/')) {
+      return FileLib.expandPath(relativePath);
+    }
+    return `/${relativePath}`;
+  },
+};

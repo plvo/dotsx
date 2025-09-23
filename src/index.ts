@@ -3,7 +3,7 @@
 import { intro, select } from '@clack/prompts';
 import { BinCommand } from './commands/bin';
 import { handleInit } from './commands/init';
-import { handleLink } from './commands/link';
+import { LinkCommand } from './commands/link';
 import { handlePackage } from './commands/package';
 import { SystemLib } from './lib/system';
 
@@ -36,7 +36,7 @@ async function main() {
   } else if (action === 'package') {
     await handlePackage();
   } else if (action === 'link') {
-    await handleLink();
+    await LinkCommand.execute();
   } else if (action === 'bin') {
     await BinCommand.execute();
   }

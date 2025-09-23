@@ -1,22 +1,19 @@
 import { resolve } from 'node:path';
 import { confirm } from '@clack/prompts';
-import { DOTFILE_PATH_DIRS } from '@/lib/constants';
+import { DOTX_DIR, DOTX_FILE } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { SystemLib } from '@/lib/system';
 
-const BIN_ALIAS_FILE = resolve(DOTFILE_PATH_DIRS.BIN, '_dotsx-bin.aliases');
-
 export const BinCommand = {
   async execute() {
-    if (!FileLib.isDirectory(DOTFILE_PATH_DIRS.BIN)) {
-      console.log(`❌ Directory ${DOTFILE_PATH_DIRS.BIN} does not exist`);
+    if (!FileLib.isDirectory(DOTX_DIR.BIN)) {
+      console.log(`❌ Directory ${DOTX_DIR.BIN} does not exist`);
       return;
     }
 
-    if (!FileLib.isFile(BIN_ALIAS_FILE)) {
-      console.log(`❌ File ${BIN_ALIAS_FILE} does not exist`);
-      FileLib.createFile(BIN_ALIAS_FILE);
-      console.log(`✅ File ${BIN_ALIAS_FILE} created, relaunch the command to continue`);
+    if (!FileLib.isFile(DOTX_FILE.BIN_ALIAS)) {
+      FileLib.createFile(DOTX_FILE.BIN_ALIAS);
+      console.log(`✅ File ${DOTX_FILE.BIN_ALIAS} created`);
       return;
     }
 
@@ -31,7 +28,7 @@ export const BinCommand = {
 
     const scriptsData = scriptFiles.map((script) => {
       const scriptName = FileLib.deleteFilenameExtension(script);
-      const scriptPath = resolve(DOTFILE_PATH_DIRS.BIN, script);
+      const scriptPath = resolve(DOTX_DIR.BIN, script);
 
       const isExecutable = FileLib.isExecutable(scriptPath);
       const hasAlias = this.checkAliasInFile(scriptName);
@@ -55,7 +52,7 @@ export const BinCommand = {
 
     scriptsData.forEach((script) => {
       if (!script.hasAlias) {
-        this.addAlias(script.scriptName);
+        this.addAlias(script.scriptName, script.scriptPath);
         console.log(`✅ ${script.scriptName} is now aliased`);
       }
 
@@ -67,15 +64,16 @@ export const BinCommand = {
   },
 
   readBinDirectory(): string[] {
-    if (!FileLib.isDirectory(DOTFILE_PATH_DIRS.BIN)) {
+    if (!FileLib.isDirectory(DOTX_DIR.BIN)) {
       return [];
     }
 
-    return FileLib.readDirectory(DOTFILE_PATH_DIRS.BIN)
+    return FileLib.readDirectory(DOTX_DIR.BIN)
       .filter((file) => {
-        const filePath = resolve(DOTFILE_PATH_DIRS.BIN, file);
+        if (file.startsWith('_')) return false;
+        const filePath = resolve(DOTX_DIR.BIN, file);
         if (!FileLib.isFile(filePath)) return false;
-        return FileLib.isExecutable(filePath);
+        return true;
       })
       .sort();
   },
@@ -86,12 +84,13 @@ export const BinCommand = {
   checkOrWriteSourceInRcFile(): boolean {
     const rcFile = SystemLib.getRcFilePath();
     const content = FileLib.readFile(rcFile);
-    const sourcePattern = new RegExp(`source\\s+${DOTFILE_PATH_DIRS.BIN}/_dotsx-bin.aliases`, 'm');
+    const sourcePattern = new RegExp(`source\\s+${DOTX_FILE.BIN_ALIAS}`, 'm');
+
     if (sourcePattern.test(content)) {
       console.log(`✅ Source exists in ${rcFile}`);
       return true;
     } else {
-      FileLib.writeToEndOfFile(rcFile, `source ${DOTFILE_PATH_DIRS.BIN}/_dotsx-bin.aliases`);
+      FileLib.writeToEndOfFile(rcFile, `source ${DOTX_FILE.BIN_ALIAS}`);
       console.log(`✅ Source added to ${rcFile}`);
       return false;
     }
@@ -99,7 +98,7 @@ export const BinCommand = {
 
   checkAliasInFile(scriptName: string): boolean {
     try {
-      const content = FileLib.readFile(BIN_ALIAS_FILE);
+      const content = FileLib.readFile(DOTX_FILE.BIN_ALIAS);
       const aliasPattern = new RegExp(`alias\\s+${scriptName}=`, 'm');
       return aliasPattern.test(content);
     } catch {
@@ -107,17 +106,17 @@ export const BinCommand = {
     }
   },
 
-  addAlias(scriptName: string): void {
-    const aliasLine = `alias ${scriptName}="${DOTFILE_PATH_DIRS.BIN}/${scriptName}"`;
+  addAlias(scriptName: string, scriptPath: string): void {
+    const aliasLine = `alias ${scriptName}="${scriptPath}"`;
 
     try {
-      if (!FileLib.isFile(BIN_ALIAS_FILE)) {
-        FileLib.createFile(BIN_ALIAS_FILE);
+      if (!FileLib.isFile(DOTX_FILE.BIN_ALIAS)) {
+        FileLib.createFile(DOTX_FILE.BIN_ALIAS);
       }
 
-      FileLib.writeToEndOfFile(BIN_ALIAS_FILE, aliasLine);
+      FileLib.writeToEndOfFile(DOTX_FILE.BIN_ALIAS, aliasLine);
     } catch (error) {
-      throw new Error(`Failed to add alias to ${BIN_ALIAS_FILE}: ${error}`);
+      throw new Error(`Failed to add alias to ${DOTX_FILE.BIN_ALIAS}: ${error}`);
     }
   },
 };

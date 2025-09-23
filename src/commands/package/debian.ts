@@ -1,12 +1,12 @@
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 import { confirm, multiselect, select } from '@clack/prompts';
-import { DOTFILE_PATH_DIRS } from '@/lib/constants';
+import { DOTX_DIR } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 
 export const DebianApt = {
   async command() {
-    const packages = FileLib.readFileAsArray(path.resolve(DOTFILE_PATH_DIRS.CORE, 'debian', 'apt.txt'));
+    const packages = FileLib.readFileAsArray(path.resolve(DOTX_DIR.CORE, 'debian', 'apt.txt'));
 
     if (packages.length === 0) {
       console.log('ℹ️ No packages found in apt.txt');
@@ -128,7 +128,7 @@ export const DebianApt = {
 
 export const DebianSnap = {
   async command() {
-    const packages = FileLib.readFileAsArray(path.resolve(DOTFILE_PATH_DIRS.CORE, 'debian', 'snap.txt'));
+    const packages = FileLib.readFileAsArray(path.resolve(DOTX_DIR.CORE, 'debian', 'snap.txt'));
 
     if (packages.length === 0) {
       console.log('ℹ️ No packages found in snap.txt');

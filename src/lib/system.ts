@@ -1,11 +1,11 @@
 import os from 'node:os';
 import path from 'node:path';
-import { DOTFILES_PATH } from './constants.ts';
+import { DOTX_PATH } from './constants.ts';
 import { FileLib } from './file.ts';
 
 export const SystemLib = {
   isInitialized(): boolean {
-    return FileLib.isDirectory(DOTFILES_PATH);
+    return FileLib.isDirectory(DOTX_PATH);
   },
 
   getOs(): string {
@@ -14,6 +14,21 @@ export const SystemLib = {
 
   getArch(): string {
     return os.arch();
+  },
+
+  detectShell(): string {
+    return process.env.SHELL?.split('/').pop() || 'unknown';
+  },
+
+  getRcFilePath(): string {
+    const home = os.homedir();
+    const shell = this.detectShell();
+
+    return shell === 'zsh'
+      ? path.resolve(home, '.zshrc')
+      : shell === 'bash'
+        ? path.resolve(home, '.bashrc')
+        : path.resolve(home, '.bashrc');
   },
 
   getSystemInfo(): SystemInfo {
@@ -33,7 +48,7 @@ export const SystemLib = {
       memory: `${usedMem}/${totalMem} GB (${memPercent}%)`,
       shell,
       rcFile,
-      dotfilesPath: DOTFILES_PATH,
+      dotfilesPath: DOTX_PATH,
     };
   },
 
@@ -45,20 +60,5 @@ export const SystemLib = {
     console.log(`🐚 Detected shell: ${info.shell}`);
     console.log(`📄 RC file: ${info.rcFile}`);
     console.log(`📁 Path: ${info.dotfilesPath}`);
-  },
-
-  detectShell(): string {
-    return process.env.SHELL?.split('/').pop() || 'unknown';
-  },
-
-  getRcFilePath(): string {
-    const home = os.homedir();
-    const shell = this.detectShell();
-
-    return shell === 'zsh'
-      ? path.resolve(home, '.zshrc')
-      : shell === 'bash'
-        ? path.resolve(home, '.bashrc')
-        : path.resolve(home, '.bashrc');
   },
 };

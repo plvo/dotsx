@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { homedir } from 'node:os';
 import path from 'node:path';
 
 export const FileLib = {
@@ -29,7 +30,9 @@ export const FileLib = {
   isSymLinkContentCorrect(src: string, dest: string) {
     if (!this.isPathExists(dest)) return false;
     if (!this.isSymLink(dest)) return false;
-    return fs.readlinkSync(dest) === src;
+
+    const actualTarget = fs.readlinkSync(dest);
+    return path.resolve(path.dirname(dest), actualTarget) === src;
   },
 
   createFile(path: string) {
@@ -142,5 +145,22 @@ export const FileLib = {
   readDirectory(path: string): string[] {
     if (!this.isDirectory(path)) return [];
     return fs.readdirSync(path);
+  },
+
+  /**
+   * Expand a path to an absolute path
+   * @example ~/workspace -> /home/user/workspaces
+   * @example /home/user/workspace -> /home/user/workspace
+   * @example workspace -> workspace
+   * @example ../workspace -> ../workspace
+   */
+  expandPath(inputPath: string): string {
+    const c = inputPath.startsWith('~/') ? path.resolve(homedir(), inputPath.slice(2)) : inputPath;
+    console.log(c);
+    return c;
+  },
+
+  getDisplayPath(inputPath: string): string {
+    return inputPath.replace(homedir(), '~');
   },
 };

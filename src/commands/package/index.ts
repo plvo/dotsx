@@ -1,10 +1,10 @@
 import { readdirSync } from 'node:fs';
 import { select } from '@clack/prompts';
-import { DOTFILE_PATH_DIRS } from '@/lib/constants';
+import { DOTX_DIR } from '@/lib/constants';
 import { DebianApt, DebianSnap } from './debian';
 
 export async function handlePackage() {
-  const availablePackages = readdirSync(DOTFILE_PATH_DIRS.CORE);
+  const availablePackages = readdirSync(DOTX_DIR.CORE);
 
   console.log(`Available distro packages: ${availablePackages.join(', ')}`);
 
