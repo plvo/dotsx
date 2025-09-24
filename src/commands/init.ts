@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { confirm, multiselect, select } from '@clack/prompts';
-import { DOTX_DIR, DOTX_PATH } from '@/lib/constants';
+import { DOTX_DIR, DOTX_PATH, REGISTRY_DIR } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { SystemLib } from '@/lib/system';
 
@@ -63,12 +63,12 @@ export const initCommand = {
       ],
     });
 
-    FileLib.copyDirectory(resolve(process.cwd(), 'templates/bin'), DOTX_DIR.BIN);
+    FileLib.copyDirectory(REGISTRY_DIR.BIN, DOTX_DIR.BIN);
     console.log(`✅ Bin directory copied to ${DOTX_DIR.BIN}`);
 
     if (typeof os === 'string') {
       const targetPath = resolve(DOTX_DIR.OS, os);
-      const templateDir = resolve(process.cwd(), `templates/os/${os}`);
+      const templateDir = resolve(REGISTRY_DIR.OS, os);
 
       if (!FileLib.isDirectory(targetPath)) {
         FileLib.copyDirectory(templateDir, targetPath);
@@ -84,7 +84,7 @@ export const initCommand = {
 
       for (const terminal of terminals) {
         const targetPath = resolve(DOTX_DIR.TERMINAL, terminal);
-        const templateFile = resolve(process.cwd(), `templates/terminal/${terminal}`);
+        const templateFile = resolve(REGISTRY_DIR.TERMINAL, terminal);
 
         if (!FileLib.isFile(targetPath)) {
           FileLib.copyFile(templateFile, targetPath);
@@ -98,7 +98,7 @@ export const initCommand = {
     if (Array.isArray(ides)) {
       for (const ide of ides) {
         const targetPath = resolve(DOTX_DIR.IDE, ide);
-        const templateDir = resolve(process.cwd(), `templates/ide/${ide}`);
+        const templateDir = resolve(REGISTRY_DIR.IDE, ide);
 
         if (!FileLib.isDirectory(targetPath)) {
           FileLib.copyDirectory(templateDir, targetPath);

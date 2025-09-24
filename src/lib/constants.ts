@@ -1,6 +1,15 @@
 import os from 'node:os';
 import path from 'node:path';
 
+export const REGISTRY_PATH: string = path.resolve(process.cwd(), 'registry');
+
+export const REGISTRY_DIR = {
+  BIN: path.resolve(REGISTRY_PATH, 'bin') satisfies string,
+  IDE: path.resolve(REGISTRY_PATH, 'ide') satisfies string,
+  OS: path.resolve(REGISTRY_PATH, 'os') satisfies string,
+  TERMINAL: path.resolve(REGISTRY_PATH, 'terminal') satisfies string,
+} as const;
+
 export const DOTX_PATH: string = path.resolve(os.homedir(), '.dotsx');
 
 export const DOTX_DIR = {
@@ -51,7 +60,7 @@ export const FILES_PATH_TO_CHECK: Record<string, string[]> = {
     '~/Library/Application Support/Code/User/keybindings.json',
     '~/Library/Application Support/Code/User/settings.json',
   ],
-  'terminal/.zshrc': ['~/.zshrc', '~/Library/Application Support/Terminal/.zshrc'],
+  'terminal/.zshrc': ['~/.zshrc', '~/Library/Application Support/Terminal/.zshrc', '~/.oh-my-zsh'],
   'terminal/.bashrc': ['~/.bashrc', '~/Library/Application Support/Terminal/.bashrc'],
   'terminal/.tmux.conf': ['~/.tmux.conf', '~/Library/Application Support/Terminal/.tmux.conf'],
 };
