@@ -1,19 +1,19 @@
 import { resolve } from 'node:path';
 import { confirm } from '@clack/prompts';
-import { DOTX_DIR, DOTX_FILE } from '@/lib/constants';
+import { DOTSX } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { SystemLib } from '@/lib/system';
 
 export const binCommand = {
   async execute() {
-    if (!FileLib.isDirectory(DOTX_DIR.BIN)) {
-      console.log(`❌ Directory ${DOTX_DIR.BIN} does not exist`);
+    if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
+      console.log(`❌ Directory ${DOTSX.BIN.PATH} does not exist`);
       return;
     }
 
-    if (!FileLib.isFile(DOTX_FILE.BIN_ALIAS)) {
-      FileLib.createFile(DOTX_FILE.BIN_ALIAS);
-      console.log(`✅ File ${DOTX_FILE.BIN_ALIAS} created`);
+    if (!FileLib.isFile(DOTSX.BIN.ALIAS)) {
+      FileLib.createFile(DOTSX.BIN.ALIAS);
+      console.log(`✅ File ${DOTSX.BIN.ALIAS} created, relaunch the cli`);
       return;
     }
 
@@ -28,7 +28,7 @@ export const binCommand = {
 
     const scriptsData = scriptFiles.map((script) => {
       const scriptName = FileLib.deleteFilenameExtension(script);
-      const scriptPath = resolve(DOTX_DIR.BIN, script);
+      const scriptPath = resolve(DOTSX.BIN.PATH, script);
 
       const isExecutable = FileLib.isExecutable(scriptPath);
       const hasAlias = this.checkAliasInFile(scriptName);
@@ -64,14 +64,14 @@ export const binCommand = {
   },
 
   readBinDirectory(): string[] {
-    if (!FileLib.isDirectory(DOTX_DIR.BIN)) {
+    if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
       return [];
     }
 
-    return FileLib.readDirectory(DOTX_DIR.BIN)
+    return FileLib.readDirectory(DOTSX.BIN.PATH)
       .filter((file) => {
         if (file.startsWith('_')) return false;
-        const filePath = resolve(DOTX_DIR.BIN, file);
+        const filePath = resolve(DOTSX.BIN.PATH, file);
         if (!FileLib.isFile(filePath)) return false;
         return true;
       })
@@ -84,13 +84,13 @@ export const binCommand = {
   checkOrWriteSourceInRcFile(): boolean {
     const rcFile = SystemLib.getRcFilePath();
     const content = FileLib.readFile(rcFile);
-    const sourcePattern = new RegExp(`source\\s+${DOTX_FILE.BIN_ALIAS}`, 'm');
+    const sourcePattern = new RegExp(`source\\s+${DOTSX.BIN.ALIAS}`, 'm');
 
     if (sourcePattern.test(content)) {
       console.log(`✅ Source exists in ${rcFile}`);
       return true;
     } else {
-      FileLib.writeToEndOfFile(rcFile, `source ${DOTX_FILE.BIN_ALIAS}`);
+      FileLib.writeToEndOfFile(rcFile, `source ${DOTSX.BIN.ALIAS}`);
       console.log(`✅ Source added to ${rcFile}`);
       return false;
     }
@@ -98,7 +98,7 @@ export const binCommand = {
 
   checkAliasInFile(scriptName: string): boolean {
     try {
-      const content = FileLib.readFile(DOTX_FILE.BIN_ALIAS);
+      const content = FileLib.readFile(DOTSX.BIN.ALIAS);
       const aliasPattern = new RegExp(`alias\\s+${scriptName}=`, 'm');
       return aliasPattern.test(content);
     } catch {
@@ -110,13 +110,13 @@ export const binCommand = {
     const aliasLine = `alias ${scriptName}="${scriptPath}"`;
 
     try {
-      if (!FileLib.isFile(DOTX_FILE.BIN_ALIAS)) {
-        FileLib.createFile(DOTX_FILE.BIN_ALIAS);
+      if (!FileLib.isFile(DOTSX.BIN.ALIAS)) {
+        FileLib.createFile(DOTSX.BIN.ALIAS);
       }
 
-      FileLib.writeToEndOfFile(DOTX_FILE.BIN_ALIAS, aliasLine);
+      FileLib.writeToEndOfFile(DOTSX.BIN.ALIAS, aliasLine);
     } catch (error) {
-      throw new Error(`Failed to add alias to ${DOTX_FILE.BIN_ALIAS}: ${error}`);
+      throw new Error(`Failed to add alias to ${DOTSX.BIN.ALIAS}: ${error}`);
     }
   },
 };

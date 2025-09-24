@@ -1,8 +1,0 @@
-tree
-btop
-curl
-grep
-unrar
-gzip
-neofetch
-nmap
