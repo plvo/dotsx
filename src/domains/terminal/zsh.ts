@@ -1,30 +1,11 @@
-import { execSync } from 'node:child_process';
-import { FileLib } from '@/lib/file';
+import type { Domain } from '@/types';
 
-interface ZshDomain {
-  rcContent: string;
-  initRcFile: (rcFile: string) => void;
-}
-
-export const ZshDomain: Domain & ZshDomain & any = {
+export const zshDomain: Domain = {
+  name: 'zsh',
   type: 'terminal',
   availableOs: ['debian', 'macos'],
-  pathToSearch: {
+  symlinkPaths: {
     debian: ['~/.zshrc'],
     macos: ['~/.zshrc'],
-  },
-
-  initRcFile: () => {
-    const curl = execSync(`which curl`).toString();
-    if (curl) {
-      execSync(`sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"`);
-    } else {
-      const wget = execSync(`which wget`).toString();
-      if (wget) {
-        execSync(`sh -c "$(wget https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O -)"`);
-      } else {
-        console.error('curl and wget are not installed');
-      }
-    }
   },
 };

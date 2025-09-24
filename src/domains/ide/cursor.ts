@@ -4,10 +4,6 @@ export const cursorDomain: Domain = {
   name: 'cursor',
   type: 'ide',
   availableOs: ['debian', 'macos'],
-  pathToSearch: {
-    debian: ['~/.config/Cursor/'],
-    macos: ['~/Library/Application Support/Cursor/'],
-  },
   symlinkPaths: {
     debian: [
       '~/.config/Cursor/User/settings.json',

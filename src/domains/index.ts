@@ -2,9 +2,12 @@ import type { Domain } from '@/types';
 import { cursorDomain } from './ide/cursor';
 import { vscodeDomain } from './ide/vscode';
 import { debianDomain } from './os/debian';
+import { bashDomain } from './terminal/bash';
+import { tmuxDomain } from './terminal/tmux';
+import { zshDomain } from './terminal/zsh';
 
 // All available domains
-export const allDomains: Domain[] = [debianDomain, cursorDomain, vscodeDomain];
+export const allDomains: Domain[] = [debianDomain, cursorDomain, vscodeDomain, zshDomain, bashDomain, tmuxDomain];
 
 // Get domains by type
 export function getDomainsByType(type: Domain['type']): Domain[] {
@@ -17,4 +20,4 @@ export function getDomainByName(name: string): Domain | undefined {
 }
 
 // Export individual domains for direct access
-export { debianDomain, cursorDomain, vscodeDomain };
+export { debianDomain, cursorDomain, vscodeDomain, zshDomain, bashDomain, tmuxDomain };

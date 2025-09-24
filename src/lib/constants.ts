@@ -1,15 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
 
-export const REGISTRY_PATH: string = path.resolve(process.cwd(), 'registry');
-
-export const REGISTRY_DIR = {
-  BIN: path.resolve(REGISTRY_PATH, 'bin') satisfies string,
-  IDE: path.resolve(REGISTRY_PATH, 'ide') satisfies string,
-  OS: path.resolve(REGISTRY_PATH, 'os') satisfies string,
-  TERMINAL: path.resolve(REGISTRY_PATH, 'terminal') satisfies string,
-} as const;
-
 export const DOTSX_PATH: string = path.resolve(os.homedir(), '.dotsx');
 
 export const DOTSX = {

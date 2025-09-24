@@ -15,17 +15,17 @@ export interface Domain {
   name: string;
   type: DomainType;
   availableOs: OsType[];
-  pathToSearch: Record<OsType, string[]>;
   packageManagers?: Record<string, PackageManagerConfig>;
   symlinkPaths?: Record<OsType, string[]>;
+  defaultContent?: string;
 }
 
-
 export interface PackageManagerConfig {
-  packages: string;
+  configPath: string;
   install: string;
   remove: string;
   status: string;
+  defaultContent: string;
 }
 
 export type CliCommand = {

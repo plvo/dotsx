@@ -44,7 +44,6 @@ export const FileLib = {
   createDirectory(path: string) {
     if (!this.isPathExists(path)) {
       fs.mkdirSync(path, { recursive: true });
-      console.log(`✅ Directory created: ${path}`);
     }
   },
 
@@ -54,9 +53,31 @@ export const FileLib = {
         this.createFile(src);
       }
       fs.copyFileSync(src, dest);
-      console.log(`✅ File copied: ${dest}`);
     } catch (error) {
       console.error(`❌ Error copying file: ${error}`);
+    }
+  },
+
+  moveFile(src: string, dest: string) {
+    try {
+      if (!this.isFile(src)) {
+        this.createFile(src);
+      }
+      fs.copyFileSync(src, dest);
+      fs.unlinkSync(src);
+      console.log(`📦 Moved: ${this.getDisplayPath(src)} → ${this.getDisplayPath(dest)}`);
+    } catch (error) {
+      console.error(`❌ Error moving file: ${error}`);
+    }
+  },
+
+  moveDirectory(src: string, dest: string) {
+    try {
+      this.copyDirectory(src, dest);
+      this.deleteDirectory(src);
+      console.log(`📦 Moved: ${this.getDisplayPath(src)} → ${this.getDisplayPath(dest)}`);
+    } catch (error) {
+      console.error(`❌ Error moving directory: ${error}`);
     }
   },
 
@@ -83,6 +104,18 @@ export const FileLib = {
     }
   },
 
+  deleteFile(path: string) {
+    if (this.isFile(path)) {
+      fs.rmSync(path);
+    }
+  },
+
+  deleteDirectory(path: string) {
+    if (this.isDirectory(path)) {
+      fs.rmdirSync(path, { recursive: true });
+    }
+  },
+
   writeToEndOfFile(path: string, content: string) {
     fs.appendFileSync(path, `${content}\n`);
   },
@@ -98,35 +131,20 @@ export const FileLib = {
   },
 
   /**
-   * Sync a file from src to dest
-   * If dest is a symlink or a file, it will be backed up and replaced by a new symlink or file
+   * Expand a path to an absolute path
+   * @example ~/workspace -> /home/user/workspaces
+   * /home/user/workspace -> /home/user/workspace
    */
-  safeSymlink(src: string, dest: string) {
-    if (this.isPathExists(dest)) {
-      const backupPath = `${dest}.dotsx.backup`;
-
-      if (fs.lstatSync(dest).isSymbolicLink()) {
-        // if it's a symlink → read the real path
-        const realPath = fs.readlinkSync(dest);
-        const content = fs.readFileSync(realPath);
-        fs.writeFileSync(backupPath, content);
-      } else {
-        // if it's a normal file → read directly
-        const content = fs.readFileSync(dest);
-        fs.writeFileSync(backupPath, content);
-      }
-
-      fs.unlinkSync(dest); // delete the old one
-
-      console.log(`✅ Backup file created: ${backupPath}`);
-      console.log(`✅ Deleted old file: ${dest}`);
-    }
-
-    fs.symlinkSync(src, dest);
+  expandPath(inputPath: string): string {
+    return inputPath.startsWith('~/') ? path.resolve(homedir(), inputPath.slice(2)) : inputPath;
   },
 
-  readFile(path: string): string {
-    return fs.readFileSync(path, 'utf8');
+  getFileSymlinkPath(inputPath: string): string {
+    return fs.readlinkSync(path.resolve(inputPath));
+  },
+
+  getDisplayPath(inputPath: string): string {
+    return inputPath.replace(homedir(), '~');
   },
 
   readFileAsArray(path: string): string[] {
@@ -147,33 +165,45 @@ export const FileLib = {
     return fs.readdirSync(path);
   },
 
-  /**
-   * Expand a path to an absolute path
-   * @example ~/workspace -> /home/user/workspaces
-   * @example /home/user/workspace -> /home/user/workspace
-   * @example workspace -> workspace
-   * @example ../workspace -> ../workspace
-   */
-  expandPath(inputPath: string): string {
-    return inputPath.startsWith('~/') ? path.resolve(homedir(), inputPath.slice(2)) : inputPath;
-  },
+  backupPath(src: string) {
+    const dest = `${src}.dotsx.backup-${Date.now()}`;
 
-  getFileSymlinkPath(inputPath: string): string | null {
-   const isSymlink = this.isSymLink(path.resolve(inputPath));
-   if (isSymlink) {
-    return fs.readlinkSync(path.resolve(inputPath));
-   }
-   return null
-  },
+    if (this.isSymLink(src)) {
+      // If it's a symlink, backup the target content
+      const realPath = this.getFileSymlinkPath(src);
+      const resolvedPath = path.resolve(path.dirname(src), realPath);
 
-  getDisplayPath(inputPath: string): string {
-    return inputPath.replace(homedir(), '~');
-  },
-
-  deleteDirectory(path: string) {
-    if (this.isDirectory(path)) {
-      fs.rmdirSync(path, { recursive: true });
-      console.log(`✅ Directory deleted: ${path}`);
+      if (this.isDirectory(resolvedPath)) {
+        this.copyDirectory(resolvedPath, dest);
+      } else {
+        this.copyFile(resolvedPath, dest);
+      }
+      fs.unlinkSync(src); // Remove the symlink
+    } else if (this.isDirectory(src)) {
+      this.copyDirectory(src, dest);
+      this.deleteDirectory(src);
+    } else if (this.isFile(src)) {
+      this.copyFile(src, dest);
+      this.deleteFile(src);
     }
+
+    console.log(`💾 Backup created: ${this.getDisplayPath(dest)}`);
+  },
+
+  /**
+   * Sync a file from src to dest
+   * If dest exists, it will be backed up and replaced by a new symlink
+   */
+  safeSymlink(src: string, dest: string) {
+    if (this.isPathExists(src)) {
+      this.backupPath(src);
+    }
+
+    fs.symlinkSync(src, dest);
+    console.log(`🔗 Symlink created: ${this.getDisplayPath(src)} <-> ${this.getDisplayPath(dest)}`);
+  },
+
+  readFile(path: string): string {
+    return fs.readFileSync(path, 'utf8');
   },
 };

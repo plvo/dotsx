@@ -4,10 +4,6 @@ export const vscodeDomain: Domain = {
   name: 'vscode',
   type: 'ide',
   availableOs: ['debian', 'macos'],
-  pathToSearch: {
-    debian: ['~/.config/Code/'],
-    macos: ['~/Library/Application Support/Code/'],
-  },
   symlinkPaths: {
     debian: [
       '~/.config/Code/User/settings.json',
