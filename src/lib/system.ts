@@ -1,15 +1,30 @@
 import os from 'node:os';
 import path from 'node:path';
-import { DOTX_PATH } from './constants.ts';
+import type { OsType, SystemInfo } from '@/types';
+import { DOTSX_PATH } from './constants.ts';
 import { FileLib } from './file.ts';
 
 export const SystemLib = {
   isInitialized(): boolean {
-    return FileLib.isDirectory(DOTX_PATH);
+    return FileLib.isDirectory(DOTSX_PATH);
   },
 
   getOs(): string {
+    // Possible values are 'aix', 'darwin', 'freebsd', 'linux', 'openbsd', 'sunos', and 'win32'.
     return os.platform();
+  },
+
+  getCurrentOsType(): OsType {
+    const platform = this.getOs();
+    switch (platform) {
+      case 'linux':
+        // Could enhance this to detect specific distros
+        return 'debian';
+      case 'darwin':
+        return 'macos';
+      default:
+        return 'debian'; // Default fallback
+    }
   },
 
   getArch(): string {
@@ -48,7 +63,7 @@ export const SystemLib = {
       memory: `${usedMem}/${totalMem} GB (${memPercent}%)`,
       shell,
       rcFile,
-      dotfilesPath: DOTX_PATH,
+      dotfilesPath: DOTSX_PATH,
     };
   },
 

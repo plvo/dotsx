@@ -10,57 +10,31 @@ export const REGISTRY_DIR = {
   TERMINAL: path.resolve(REGISTRY_PATH, 'terminal') satisfies string,
 } as const;
 
-export const DOTX_PATH: string = path.resolve(os.homedir(), '.dotsx');
+export const DOTSX_PATH: string = path.resolve(os.homedir(), '.dotsx');
 
-export const DOTX_DIR = {
-  BIN: path.resolve(DOTX_PATH, 'bin') satisfies string,
-  IDE: path.resolve(DOTX_PATH, 'ide') satisfies string,
-  OS: path.resolve(DOTX_PATH, 'os') satisfies string,
-  SYMLINKS: path.resolve(DOTX_PATH, 'symlinks') satisfies string,
-  TERMINAL: path.resolve(DOTX_PATH, 'terminal') satisfies string,
-} as const;
-
-export const DOTX_FILE = {
-  BIN_ALIAS: path.resolve(DOTX_DIR.BIN, '_dotsx-bin.aliases') satisfies string,
-  OS_DEBIAN_APT: path.resolve(DOTX_DIR.OS, 'debian', 'apt.txt') satisfies string,
-  OS_DEBIAN_SNAP: path.resolve(DOTX_DIR.OS, 'debian', 'snap.txt') satisfies string,
-} as const;
-
-export const OS_CONFIG: Record<string, Record<string, PackageManagerConfig>> = {
-  debian: {
-    apt: {
-      packages: DOTX_FILE.OS_DEBIAN_APT,
-      install: 'sudo apt install -y',
-      remove: 'sudo apt remove -y',
-      status: 'dpkg -l | grep "^ii" | grep -w " %s "',
-    },
-    snap: {
-      packages: DOTX_FILE.OS_DEBIAN_SNAP,
-      install: 'sudo snap install',
-      remove: 'sudo snap remove',
-      status: 'snap list',
+export const DOTSX = {
+  BIN: {
+    PATH: path.resolve(DOTSX_PATH, 'bin'),
+    ALIAS: path.resolve(DOTSX_PATH, 'bin', '_dotsx-bin.aliases') satisfies string,
+  },
+  IDE: {
+    PATH: path.resolve(DOTSX_PATH, 'ide'),
+    CURSOR: path.resolve(DOTSX_PATH, 'ide', 'cursor'),
+    VSCODE: path.resolve(DOTSX_PATH, 'ide', 'vscode'),
+  },
+  OS: {
+    PATH: path.resolve(DOTSX_PATH, 'os'),
+    DEBIAN: {
+      PATH: path.resolve(DOTSX_PATH, 'os', 'debian'),
+      APT: path.resolve(DOTSX_PATH, 'os', 'debian', 'apt.txt') satisfies string,
+      SNAP: path.resolve(DOTSX_PATH, 'os', 'debian', 'snap.txt') satisfies string,
     },
   },
-};
-
-export const FILES_PATH_TO_CHECK: Record<string, string[]> = {
-  'ide/cursor/': [
-    '~/.config/Cursor/User/settings.json',
-    '~/.config/Cursor/User/keybindings.json',
-    '~/.config/Cursor/User/snippets',
-    '~/Library/Application Support/Cursor/User/settings.json',
-    '~/Library/Application Support/Cursor/User/keybindings.json',
-    '~/Library/Application Support/Cursor/User/snippets',
-  ],
-  'ide/vscode/': [
-    '~/.config/Code/User/settings.json',
-    '~/.config/Code/User/keybindings.json',
-    '~/.config/Code/User/snippets',
-    '~/Library/Application Support/Code/User/snippets',
-    '~/Library/Application Support/Code/User/keybindings.json',
-    '~/Library/Application Support/Code/User/settings.json',
-  ],
-  'terminal/.zshrc': ['~/.zshrc', '~/Library/Application Support/Terminal/.zshrc', '~/.oh-my-zsh'],
-  'terminal/.bashrc': ['~/.bashrc', '~/Library/Application Support/Terminal/.bashrc'],
-  'terminal/.tmux.conf': ['~/.tmux.conf', '~/Library/Application Support/Terminal/.tmux.conf'],
-};
+  SYMLINKS: path.resolve(DOTSX_PATH, 'symlinks'),
+  TERMINAL: {
+    PATH: path.resolve(DOTSX_PATH, 'terminal'),
+    ZSHRC: path.resolve(DOTSX_PATH, 'terminal', '.zshrc') satisfies string,
+    BASHRC: path.resolve(DOTSX_PATH, 'terminal', '.bashrc') satisfies string,
+    TMUX_CONF: path.resolve(DOTSX_PATH, 'terminal', '.tmux.conf') satisfies string,
+  },
+} as const;

@@ -1,41 +1,39 @@
 import { execSync } from 'node:child_process';
 import { confirm, multiselect, select } from '@clack/prompts';
-import { DOTX_DIR, OS_CONFIG } from '@/lib/constants';
+import { getDomainsByType } from '@/domains';
+import { ConsoleLib } from '@/lib/console';
 import { FileLib } from '@/lib/file';
+import type { Domain, PackageManagerConfig } from '@/types';
 
 export const packageCommand = {
   async execute() {
-    const availableDistros = FileLib.readDirectory(DOTX_DIR.OS);
+    const osDomains = getDomainsByType('os').filter((domain) => domain.packageManagers);
 
-    if (availableDistros.length === 0) {
-      console.log('ℹ️ No OS configurations found');
+    if (osDomains.length === 0) {
+      console.log('ℹ️ No OS domains with package managers found');
       return;
     }
 
-    console.log(`Available distros: ${availableDistros.join(', ')}`);
+    console.log(`Available OS: ${osDomains.map((d) => d.name).join(', ')}`);
 
-    const selectedDistro = await select({
-      message: 'Which distro do you want to use?',
-      options: availableDistros.map((distro) => ({
-        value: distro,
-        label: distro.charAt(0).toUpperCase() + distro.slice(1),
+    const selectedDomain = await select({
+      message: 'Which OS do you want to use?',
+      options: osDomains.map((domain) => ({
+        value: domain,
+        label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
       })),
     });
 
-    if (selectedDistro && OS_CONFIG[selectedDistro as keyof typeof OS_CONFIG]) {
-      await this.handleDistro(selectedDistro as keyof typeof OS_CONFIG);
+    if (selectedDomain && typeof selectedDomain === 'object' && selectedDomain.packageManagers) {
+      await this.handleDomain(selectedDomain);
     }
   },
 
-  async handleDistro(distro: keyof typeof OS_CONFIG) {
-    const distroConfig = OS_CONFIG[distro];
+  async handleDomain(domain: Domain) {
+    if (!domain.packageManagers) return;
+    const packageManagers = domain.packageManagers;
 
-    if (!distroConfig) {
-      console.log('❌ No distro config found');
-      return;
-    }
-
-    const availableManagers = Object.keys(distroConfig);
+    const availableManagers = Object.keys(packageManagers);
 
     const selectedManager = await select({
       message: 'Which package manager do you want to use?',
@@ -45,10 +43,8 @@ export const packageCommand = {
       })),
     });
 
-    if (selectedManager && distroConfig[selectedManager as keyof typeof distroConfig]) {
-      await this.handlePackageManager(
-        distroConfig[selectedManager as keyof typeof distroConfig] as PackageManagerConfig,
-      );
+    if (selectedManager && typeof selectedManager === 'string' && packageManagers[selectedManager]) {
+      await this.handlePackageManager(packageManagers[selectedManager]);
     }
   },
 
@@ -145,11 +141,8 @@ export const packageCommand = {
     const installed = packages.filter((pkg) => this.isPackageInstalled(pkg, config));
     const notInstalled = packages.filter((pkg) => !this.isPackageInstalled(pkg, config));
 
-    console.log(`\n✅ Installed (${installed.length}):`);
-    installed.forEach((pkg) => console.log(`   ${pkg}`));
-
-    console.log(`\n📋 Not installed (${notInstalled.length}):`);
-    notInstalled.forEach((pkg) => console.log(`   ${pkg}`));
+    ConsoleLib.logListWithTitle('✅ Installed', installed);
+    ConsoleLib.logListWithTitle('📋 Not installed', notInstalled);
 
     return { installed, notInstalled };
   },

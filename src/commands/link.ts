@@ -1,7 +1,8 @@
 import { dirname, resolve } from 'node:path';
 import { confirm, select, text } from '@clack/prompts';
-import { DOTX_DIR } from '@/lib/constants';
+import { DOTSX } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
+import type { AllLinks } from '@/types';
 
 export const linkCommand = {
   async execute() {
@@ -95,7 +96,7 @@ export const linkCommand = {
   },
 
   getSymlinks(): Array<{ linkPath: string; targetPath: string }> {
-    if (!FileLib.isDirectory(DOTX_DIR.SYMLINKS)) return [];
+    if (!FileLib.isDirectory(DOTSX.SYMLINKS)) return [];
 
     const scan = (dir: string, rel = ''): Array<{ linkPath: string; targetPath: string }> => {
       const results: Array<{ linkPath: string; targetPath: string }> = [];
@@ -117,15 +118,15 @@ export const linkCommand = {
       return results;
     };
 
-    return scan(DOTX_DIR.SYMLINKS);
+    return scan(DOTSX.SYMLINKS);
   },
 
   getLinkPath(systemPath: string): string {
     const displayPath = FileLib.getDisplayPath(systemPath);
     if (displayPath.startsWith('~')) {
-      return resolve(DOTX_DIR.SYMLINKS, displayPath);
+      return resolve(DOTSX.SYMLINKS, displayPath);
     }
-    return resolve(DOTX_DIR.SYMLINKS, systemPath.startsWith('/') ? systemPath.slice(1) : systemPath);
+    return resolve(DOTSX.SYMLINKS, systemPath.startsWith('/') ? systemPath.slice(1) : systemPath);
   },
 
   getTargetPath(relativePath: string): string {

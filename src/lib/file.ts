@@ -35,9 +35,9 @@ export const FileLib = {
     return path.resolve(path.dirname(dest), actualTarget) === src;
   },
 
-  createFile(path: string) {
+  createFile(path: string, content: string = '') {
     if (!this.isPathExists(path)) {
-      fs.writeFileSync(path, '');
+      fs.writeFileSync(path, content);
     }
   },
 
@@ -155,9 +155,15 @@ export const FileLib = {
    * @example ../workspace -> ../workspace
    */
   expandPath(inputPath: string): string {
-    const c = inputPath.startsWith('~/') ? path.resolve(homedir(), inputPath.slice(2)) : inputPath;
-    console.log(c);
-    return c;
+    return inputPath.startsWith('~/') ? path.resolve(homedir(), inputPath.slice(2)) : inputPath;
+  },
+
+  getFileSymlinkPath(inputPath: string): string | null {
+   const isSymlink = this.isSymLink(path.resolve(inputPath));
+   if (isSymlink) {
+    return fs.readlinkSync(path.resolve(inputPath));
+   }
+   return null
   },
 
   getDisplayPath(inputPath: string): string {
