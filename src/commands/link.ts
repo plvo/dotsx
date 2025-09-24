@@ -21,15 +21,15 @@ export const linkCommand = {
   },
 
   async addLink() {
-    const input = await text({
+    const pathInput = await text({
       message: 'Path to link:',
       placeholder: 'relative or absolute path',
       validate: (v) => (v && FileLib.isPathExists(FileLib.expandPath(v)) ? undefined : "File doesn't exist"),
     });
 
-    if (!input) return;
+    if (!pathInput) return;
 
-    const targetPath = FileLib.expandPath(String(input));
+    const targetPath = FileLib.expandPath(String(pathInput));
     const linkPath = this.getLinkPath(targetPath);
 
     FileLib.createDirectory(dirname(linkPath));
@@ -41,7 +41,6 @@ export const linkCommand = {
     }
 
     FileLib.safeSymlink(linkPath, targetPath);
-    console.log(`✅ Added: ${String(input)}`);
   },
 
   async syncLinks(links: AllLinks) {

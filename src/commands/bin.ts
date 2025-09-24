@@ -13,7 +13,7 @@ export const binCommand = {
 
     if (!FileLib.isFile(DOTSX.BIN.ALIAS)) {
       FileLib.createFile(DOTSX.BIN.ALIAS);
-      console.log(`✅ File ${DOTSX.BIN.ALIAS} created`);
+      console.log(`✅ File ${DOTSX.BIN.ALIAS} created, relaunch the cli`);
       return;
     }
 

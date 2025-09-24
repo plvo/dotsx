@@ -49,12 +49,12 @@ export const packageCommand = {
   },
 
   async handlePackageManager(config: PackageManagerConfig) {
-    const packages = FileLib.readFileAsArray(config.packages);
+    const packages = FileLib.readFileAsArray(config.configPath);
 
     const { installed, notInstalled } = this.handleStatus(packages, config);
 
     if (packages.length === 0) {
-      console.log(`ℹ️ No packages found in ${FileLib.getDisplayPath(config.packages)}`);
+      console.log(`ℹ️ No packages found in ${FileLib.getDisplayPath(config.configPath)}`);
       return;
     }
 
