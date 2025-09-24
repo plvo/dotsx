@@ -15,36 +15,53 @@ describe('FileLib', () => {
     await rm(testDir, { recursive: true, force: true });
   });
 
-  describe('Path checks', () => {
-    test('isPathExists should return true for existing path', () => {
+  describe('isPathExists', () => {
+    test('should return true for existing path', () => {
       expect(FileLib.isPathExists(testDir)).toBe(true);
     });
 
-    test('isPathExists should return false for non-existing path', () => {
+    test('should return false for non-existing path', () => {
       const nonExistentPath = join(testDir, 'non-existent');
       expect(FileLib.isPathExists(nonExistentPath)).toBe(false);
     });
+  });
 
-    test('isDirectory should return true for directory', () => {
-      expect(FileLib.isDirectory(testDir)).toBe(true);
-    });
-
-    test('isDirectory should return false for non-existent path', () => {
-      const nonExistentPath = join(testDir, 'non-existent');
-      expect(FileLib.isDirectory(nonExistentPath)).toBe(false);
-    });
-
-    test('isFile should return true for file', async () => {
+  describe('isFile', () => {
+    test('should return true for file', async () => {
       const testFile = join(testDir, 'test.txt');
       await writeFile(testFile, 'test content');
       expect(FileLib.isFile(testFile)).toBe(true);
     });
 
-    test('isFile should return false for directory', () => {
+    test('should return false for directory', () => {
       expect(FileLib.isFile(testDir)).toBe(false);
     });
 
-    test('isSymLink should return true for symlink', async () => {
+    test('should return false for non-existent path', () => {
+      const nonExistentPath = join(testDir, 'non-existent');
+      expect(FileLib.isFile(nonExistentPath)).toBe(false);
+    });
+  });
+
+  describe('isDirectory', () => {
+    test('should return true for directory', () => {
+      expect(FileLib.isDirectory(testDir)).toBe(true);
+    });
+
+    test('should return false for non-existent path', () => {
+      const nonExistentPath = join(testDir, 'non-existent');
+      expect(FileLib.isDirectory(nonExistentPath)).toBe(false);
+    });
+
+    test('should return false for file', async () => {
+      const testFile = join(testDir, 'test.txt');
+      await writeFile(testFile, 'test content');
+      expect(FileLib.isDirectory(testFile)).toBe(false);
+    });
+  });
+
+  describe('isSymLink', () => {
+    test('should return true for symlink', async () => {
       const sourceFile = join(testDir, 'source.txt');
       const linkFile = join(testDir, 'link.txt');
 
@@ -54,15 +71,96 @@ describe('FileLib', () => {
       expect(FileLib.isSymLink(linkFile)).toBe(true);
     });
 
-    test('isSymLink should return false for regular file', async () => {
+    test('should return false for regular file', async () => {
       const testFile = join(testDir, 'test.txt');
       await writeFile(testFile, 'test content');
       expect(FileLib.isSymLink(testFile)).toBe(false);
     });
+
+    test('should return false for non-existent path', () => {
+      const nonExistentPath = join(testDir, 'non-existent');
+      expect(FileLib.isSymLink(nonExistentPath)).toBe(false);
+    });
+
+    test('should return true for broken symlink', async () => {
+      const nonExistentTarget = join(testDir, 'non-existent-target.txt');
+      const brokenLinkFile = join(testDir, 'broken-link.txt');
+
+      await symlink(nonExistentTarget, brokenLinkFile);
+
+      expect(FileLib.isSymLink(brokenLinkFile)).toBe(true);
+    });
   });
 
-  describe('File operations', () => {
-    test('createFile should create file with content', () => {
+  describe('isExecutable', () => {
+    test('should return true for executable file', async () => {
+      const testFile = join(testDir, 'executable.sh');
+      await writeFile(testFile, '#!/bin/bash\\necho "hello"');
+      await chmod(testFile, 0o755);
+
+      expect(FileLib.isExecutable(testFile)).toBe(true);
+    });
+
+    test('should return false for non-executable file', async () => {
+      const testFile = join(testDir, 'non-executable.txt');
+      await writeFile(testFile, 'just text');
+
+      expect(FileLib.isExecutable(testFile)).toBe(false);
+    });
+
+    test('should return false for non-existent file', () => {
+      const nonExistentFile = join(testDir, 'non-existent.txt');
+      expect(FileLib.isExecutable(nonExistentFile)).toBe(false);
+    });
+
+    test('should return false for directory', () => {
+      expect(FileLib.isExecutable(testDir)).toBe(false);
+    });
+  });
+
+  describe('isSymLinkContentCorrect', () => {
+    test('should validate symlink target', async () => {
+      const sourceFile = join(testDir, 'source.txt');
+      const linkFile = join(testDir, 'link.txt');
+
+      await writeFile(sourceFile, 'content');
+      await symlink(sourceFile, linkFile);
+
+      expect(FileLib.isSymLinkContentCorrect(sourceFile, linkFile)).toBe(true);
+    });
+
+    test('should return false for incorrect symlink', async () => {
+      const sourceFile = join(testDir, 'source.txt');
+      const wrongSource = join(testDir, 'wrong.txt');
+      const linkFile = join(testDir, 'link.txt');
+
+      await writeFile(sourceFile, 'content');
+      await writeFile(wrongSource, 'wrong content');
+      await symlink(wrongSource, linkFile);
+
+      expect(FileLib.isSymLinkContentCorrect(sourceFile, linkFile)).toBe(false);
+    });
+
+    test('should return false for non-existent destination', () => {
+      const sourceFile = join(testDir, 'source.txt');
+      const nonExistentDest = join(testDir, 'non-existent');
+
+      expect(FileLib.isSymLinkContentCorrect(sourceFile, nonExistentDest)).toBe(false);
+    });
+
+    test('should return false for non-symlink destination', async () => {
+      const sourceFile = join(testDir, 'source.txt');
+      const regularFile = join(testDir, 'regular.txt');
+
+      await writeFile(sourceFile, 'content');
+      await writeFile(regularFile, 'content');
+
+      expect(FileLib.isSymLinkContentCorrect(sourceFile, regularFile)).toBe(false);
+    });
+  });
+
+  describe('createFile', () => {
+    test('should create file with content', () => {
       const testFile = join(testDir, 'new-file.txt');
       const content = 'test content';
 
@@ -72,7 +170,16 @@ describe('FileLib', () => {
       expect(FileLib.readFile(testFile)).toBe(content);
     });
 
-    test('createFile should not overwrite existing file', async () => {
+    test('should create file with empty content by default', () => {
+      const testFile = join(testDir, 'empty-file.txt');
+
+      FileLib.createFile(testFile);
+
+      expect(FileLib.isFile(testFile)).toBe(true);
+      expect(FileLib.readFile(testFile)).toBe('');
+    });
+
+    test('should not overwrite existing file', async () => {
       const testFile = join(testDir, 'existing-file.txt');
       const originalContent = 'original content';
       const newContent = 'new content';
@@ -82,8 +189,10 @@ describe('FileLib', () => {
 
       expect(FileLib.readFile(testFile)).toBe(originalContent);
     });
+  });
 
-    test('createDirectory should create directory', () => {
+  describe('createDirectory', () => {
+    test('should create directory', () => {
       const newDir = join(testDir, 'new-dir');
 
       FileLib.createDirectory(newDir);
@@ -91,7 +200,7 @@ describe('FileLib', () => {
       expect(FileLib.isDirectory(newDir)).toBe(true);
     });
 
-    test('createDirectory should create nested directories', () => {
+    test('should create nested directories', () => {
       const nestedDir = join(testDir, 'level1', 'level2', 'level3');
 
       FileLib.createDirectory(nestedDir);
@@ -99,16 +208,117 @@ describe('FileLib', () => {
       expect(FileLib.isDirectory(nestedDir)).toBe(true);
     });
 
-    test('readFile should return file content', async () => {
-      const testFile = join(testDir, 'test.txt');
-      const content = 'test content\\nwith multiple lines';
+    test('should not create directory if it already exists', async () => {
+      const existingDir = join(testDir, 'existing-dir');
+      await mkdir(existingDir);
 
-      await writeFile(testFile, content);
+      // This should not throw an error
+      FileLib.createDirectory(existingDir);
 
-      expect(FileLib.readFile(testFile)).toBe(content);
+      expect(FileLib.isDirectory(existingDir)).toBe(true);
+    });
+  });
+
+  describe('copyFile', () => {
+    test('should copy existing file', async () => {
+      const sourceFile = join(testDir, 'source.txt');
+      const destFile = join(testDir, 'dest.txt');
+      const content = 'test content';
+
+      await writeFile(sourceFile, content);
+      FileLib.copyFile(sourceFile, destFile);
+
+      expect(FileLib.isFile(destFile)).toBe(true);
+      expect(FileLib.readFile(destFile)).toBe(content);
     });
 
-    test('deleteFile should remove file', async () => {
+    test('should create source file if it does not exist', () => {
+      const sourceFile = join(testDir, 'non-existent-source.txt');
+      const destFile = join(testDir, 'dest.txt');
+
+      FileLib.copyFile(sourceFile, destFile);
+
+      expect(FileLib.isFile(sourceFile)).toBe(true);
+      expect(FileLib.isFile(destFile)).toBe(true);
+    });
+
+    test('should handle copy errors gracefully', () => {
+      const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+      const sourceFile = join(testDir, 'source.txt');
+      const invalidDest = '/invalid/path/dest.txt';
+
+      FileLib.createFile(sourceFile, 'content');
+      FileLib.copyFile(sourceFile, invalidDest);
+
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('copyDirectory', () => {
+    test('should copy directory with files and subdirectories', async () => {
+      const sourceDir = join(testDir, 'source-dir');
+      const destDir = join(testDir, 'dest-dir');
+      const subDir = join(sourceDir, 'subdir');
+      const file1 = join(sourceDir, 'file1.txt');
+      const file2 = join(subDir, 'file2.txt');
+
+      await mkdir(sourceDir);
+      await mkdir(subDir);
+      await writeFile(file1, 'content1');
+      await writeFile(file2, 'content2');
+
+      FileLib.copyDirectory(sourceDir, destDir);
+
+      expect(FileLib.isDirectory(destDir)).toBe(true);
+      expect(FileLib.isDirectory(join(destDir, 'subdir'))).toBe(true);
+      expect(FileLib.isFile(join(destDir, 'file1.txt'))).toBe(true);
+      expect(FileLib.isFile(join(destDir, 'subdir', 'file2.txt'))).toBe(true);
+      expect(FileLib.readFile(join(destDir, 'file1.txt'))).toBe('content1');
+      expect(FileLib.readFile(join(destDir, 'subdir', 'file2.txt'))).toBe('content2');
+    });
+
+    test('should create destination directory if it does not exist', async () => {
+      const sourceDir = join(testDir, 'source-dir');
+      const destDir = join(testDir, 'dest-dir');
+      const file1 = join(sourceDir, 'file1.txt');
+
+      await mkdir(sourceDir);
+      await writeFile(file1, 'content1');
+
+      FileLib.copyDirectory(sourceDir, destDir);
+
+      expect(FileLib.isDirectory(destDir)).toBe(true);
+      expect(FileLib.isFile(join(destDir, 'file1.txt'))).toBe(true);
+    });
+
+    test('should handle file copy errors in directory', async () => {
+      const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+      const sourceDir = join(testDir, 'source-dir');
+      const destDir = join(testDir, 'dest-dir');
+      const file1 = join(sourceDir, 'file1.txt');
+
+      await mkdir(sourceDir);
+      await writeFile(file1, 'content1');
+
+      // Mock copyFile to throw an error
+      const originalCopyFile = FileLib.copyFile;
+      FileLib.copyFile = () => {
+        throw new Error('Copy error');
+      };
+
+      FileLib.copyDirectory(sourceDir, destDir);
+
+      expect(consoleSpy).toHaveBeenCalled();
+      
+      // Restore original method
+      FileLib.copyFile = originalCopyFile;
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('deleteFile', () => {
+    test('should remove file', async () => {
       const testFile = join(testDir, 'to-delete.txt');
       await writeFile(testFile, 'content');
 
@@ -117,7 +327,27 @@ describe('FileLib', () => {
       expect(FileLib.isPathExists(testFile)).toBe(false);
     });
 
-    test('deleteDirectory should remove directory', async () => {
+    test('should not error when deleting non-existent file', () => {
+      const nonExistentFile = join(testDir, 'non-existent.txt');
+
+      // This should not throw an error
+      FileLib.deleteFile(nonExistentFile);
+
+      expect(FileLib.isPathExists(nonExistentFile)).toBe(false);
+    });
+
+    test('should not delete directory', async () => {
+      const testSubDir = join(testDir, 'test-subdir');
+      await mkdir(testSubDir);
+
+      FileLib.deleteFile(testSubDir);
+
+      expect(FileLib.isDirectory(testSubDir)).toBe(true);
+    });
+  });
+
+  describe('deleteDirectory', () => {
+    test('should remove directory', async () => {
       const testSubDir = join(testDir, 'to-delete');
       await mkdir(testSubDir);
 
@@ -125,36 +355,34 @@ describe('FileLib', () => {
 
       expect(FileLib.isPathExists(testSubDir)).toBe(false);
     });
+
+    test('should not error when deleting non-existent directory', () => {
+      const nonExistentDir = join(testDir, 'non-existent');
+
+      // This should not throw an error
+      FileLib.deleteDirectory(nonExistentDir);
+
+      expect(FileLib.isPathExists(nonExistentDir)).toBe(false);
+    });
+
+    test('should not delete file', async () => {
+      const testFile = join(testDir, 'test-file.txt');
+      await writeFile(testFile, 'content');
+
+      FileLib.deleteDirectory(testFile);
+
+      expect(FileLib.isFile(testFile)).toBe(true);
+    });
   });
 
-  describe('Path utilities', () => {
-    test('expandPath should expand tilde to home directory', () => {
-      const tildeePath = '~/test-path';
-      const expanded = FileLib.expandPath(tildeePath);
+  describe('readFile', () => {
+    test('should return file content', async () => {
+      const testFile = join(testDir, 'test.txt');
+      const content = 'test content\\nwith multiple lines';
 
-      expect(expanded).toBe(resolve(homedir(), 'test-path'));
-      expect(expanded).not.toContain('~');
-    });
+      await writeFile(testFile, content);
 
-    test('expandPath should leave absolute paths unchanged', () => {
-      const absolutePath = '/absolute/path';
-      const expanded = FileLib.expandPath(absolutePath);
-
-      expect(expanded).toBe(absolutePath);
-    });
-
-    test('getDisplayPath should replace home with tilde', () => {
-      const homePath = join(homedir(), 'some', 'path');
-      const displayPath = FileLib.getDisplayPath(homePath);
-
-      expect(displayPath).toBe('~/some/path');
-    });
-
-    test('deleteFilenameExtension should remove extension', () => {
-      expect(FileLib.deleteFilenameExtension('file.txt')).toBe('file');
-      expect(FileLib.deleteFilenameExtension('archive.tar.gz')).toBe('archive.tar');
-      expect(FileLib.deleteFilenameExtension('noextension')).toBe('noextension');
-      expect(FileLib.deleteFilenameExtension('.hidden')).toBe('');
+      expect(FileLib.readFile(testFile)).toBe(content);
     });
   });
 
@@ -177,6 +405,17 @@ describe('FileLib', () => {
 
       const result = FileLib.readFileAsArray(testFile);
       expect(result).toEqual(['valid-line', 'another-valid-line']);
+    });
+
+    test('should handle non-existent file', () => {
+      const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
+      const nonExistentFile = join(testDir, 'non-existent.txt');
+
+      const result = FileLib.readFileAsArray(nonExistentFile);
+
+      expect(result).toEqual([]);
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
     });
   });
 
@@ -204,67 +443,6 @@ describe('FileLib', () => {
     });
   });
 
-  describe('Symlink operations', () => {
-    test('isSymLinkContentCorrect should validate symlink target', async () => {
-      const sourceFile = join(testDir, 'source.txt');
-      const linkFile = join(testDir, 'link.txt');
-
-      await writeFile(sourceFile, 'content');
-      await symlink(sourceFile, linkFile);
-
-      expect(FileLib.isSymLinkContentCorrect(sourceFile, linkFile)).toBe(true);
-    });
-
-    test('isSymLinkContentCorrect should return false for incorrect symlink', async () => {
-      const sourceFile = join(testDir, 'source.txt');
-      const wrongSource = join(testDir, 'wrong.txt');
-      const linkFile = join(testDir, 'link.txt');
-
-      await writeFile(sourceFile, 'content');
-      await writeFile(wrongSource, 'wrong content');
-      await symlink(wrongSource, linkFile);
-
-      expect(FileLib.isSymLinkContentCorrect(sourceFile, linkFile)).toBe(false);
-    });
-
-    test('getFileSymlinkPath should return symlink target', async () => {
-      const sourceFile = join(testDir, 'source.txt');
-      const linkFile = join(testDir, 'link.txt');
-
-      await writeFile(sourceFile, 'content');
-      await symlink(sourceFile, linkFile);
-
-      const target = FileLib.getFileSymlinkPath(linkFile);
-      expect(target).toBe(sourceFile);
-    });
-  });
-
-  describe('File permissions', () => {
-    test('makeExecutable should set executable permissions', async () => {
-      const testFile = join(testDir, 'script.sh');
-      await writeFile(testFile, '#!/bin/bash\\necho "hello"');
-
-      FileLib.makeExecutable(testFile);
-
-      expect(FileLib.isExecutable(testFile)).toBe(true);
-    });
-
-    test('isExecutable should return true for executable file', async () => {
-      const testFile = join(testDir, 'executable.sh');
-      await writeFile(testFile, '#!/bin/bash\\necho "hello"');
-      await chmod(testFile, 0o755);
-
-      expect(FileLib.isExecutable(testFile)).toBe(true);
-    });
-
-    test('isExecutable should return false for non-executable file', async () => {
-      const testFile = join(testDir, 'non-executable.txt');
-      await writeFile(testFile, 'just text');
-
-      expect(FileLib.isExecutable(testFile)).toBe(false);
-    });
-  });
-
   describe('writeToEndOfFile', () => {
     test('should append content to file', async () => {
       const testFile = join(testDir, 'append-test.txt');
@@ -279,26 +457,242 @@ describe('FileLib', () => {
     });
   });
 
-  describe('Error handling', () => {
-    test('copyFile should handle errors gracefully', () => {
-      const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
-      const nonExistentSource = join(testDir, 'non-existent-source.txt');
-      const dest = join(testDir, 'dest.txt');
+  describe('makeExecutable', () => {
+    test('should set executable permissions', async () => {
+      const testFile = join(testDir, 'script.sh');
+      await writeFile(testFile, '#!/bin/bash\\necho "hello"');
 
-      // This should trigger the error handling since source doesn't exist initially
-      FileLib.copyFile(nonExistentSource, dest);
+      FileLib.makeExecutable(testFile);
+
+      expect(FileLib.isExecutable(testFile)).toBe(true);
+    });
+
+    test('should not error on non-existent file', () => {
+      const nonExistentFile = join(testDir, 'non-existent.sh');
+
+      // This should not throw an error
+      FileLib.makeExecutable(nonExistentFile);
+    });
+
+    test('should not make directory executable', async () => {
+      const testSubDir = join(testDir, 'test-subdir');
+      await mkdir(testSubDir);
+
+      FileLib.makeExecutable(testSubDir);
+
+      expect(FileLib.isExecutable(testSubDir)).toBe(false);
+    });
+  });
+
+  describe('deleteFilenameExtension', () => {
+    test('should remove extension', () => {
+      expect(FileLib.deleteFilenameExtension('file.txt')).toBe('file');
+      expect(FileLib.deleteFilenameExtension('archive.tar.gz')).toBe('archive.tar');
+      expect(FileLib.deleteFilenameExtension('noextension')).toBe('noextension');
+      expect(FileLib.deleteFilenameExtension('.hidden')).toBe('');
+    });
+
+    test('should handle empty string', () => {
+      expect(FileLib.deleteFilenameExtension('')).toBe('');
+    });
+
+    test('should handle complex filenames', () => {
+      expect(FileLib.deleteFilenameExtension('my.file.with.many.dots.txt')).toBe('my.file.with.many.dots');
+      expect(FileLib.deleteFilenameExtension('file.')).toBe('file');
+    });
+  });
+
+  describe('expandPath', () => {
+    test('should expand tilde to home directory', () => {
+      const tildeePath = '~/test-path';
+      const expanded = FileLib.expandPath(tildeePath);
+
+      expect(expanded).toBe(resolve(homedir(), 'test-path'));
+      expect(expanded).not.toContain('~');
+    });
+
+    test('should leave absolute paths unchanged', () => {
+      const absolutePath = '/absolute/path';
+      const expanded = FileLib.expandPath(absolutePath);
+
+      expect(expanded).toBe(absolutePath);
+    });
+
+    test('should leave relative paths unchanged', () => {
+      const relativePath = 'relative/path';
+      const expanded = FileLib.expandPath(relativePath);
+
+      expect(expanded).toBe(relativePath);
+    });
+
+    test('should handle tilde only', () => {
+      const tildeOnly = '~';
+      const expanded = FileLib.expandPath(tildeOnly);
+
+      expect(expanded).toBe('~');
+    });
+  });
+
+  describe('getFileSymlinkPath', () => {
+    test('should return symlink target', async () => {
+      const sourceFile = join(testDir, 'source.txt');
+      const linkFile = join(testDir, 'link.txt');
+
+      await writeFile(sourceFile, 'content');
+      await symlink(sourceFile, linkFile);
+
+      const target = FileLib.getFileSymlinkPath(linkFile);
+      expect(target).toBe(sourceFile);
+    });
+  });
+
+  describe('getDisplayPath', () => {
+    test('should replace home with tilde', () => {
+      const homePath = join(homedir(), 'some', 'path');
+      const displayPath = FileLib.getDisplayPath(homePath);
+
+      expect(displayPath).toBe('~/some/path');
+    });
+
+    test('should leave non-home paths unchanged', () => {
+      const nonHomePath = '/some/other/path';
+      const displayPath = FileLib.getDisplayPath(nonHomePath);
+
+      expect(displayPath).toBe(nonHomePath);
+    });
+  });
+
+  describe('backupPath', () => {
+    test('should backup regular file', async () => {
+      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+      const sourceFile = join(testDir, 'source.txt');
+      const content = 'test content';
+
+      await writeFile(sourceFile, content);
+      FileLib.backupPath(sourceFile);
+
+      expect(FileLib.isPathExists(sourceFile)).toBe(false);
+      
+      const backupFiles = FileLib.readDirectory(testDir).filter(f => f.includes('.dotsx.backup-'));
+      expect(backupFiles.length).toBe(1);
+      const backupFileName = backupFiles[0] as string;
+      expect(FileLib.readFile(join(testDir, backupFileName))).toBe(content);
 
       consoleSpy.mockRestore();
     });
 
-    test('readFileAsArray should handle non-existent file', () => {
-      const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
-      const nonExistentFile = join(testDir, 'non-existent.txt');
+    test('should backup directory', async () => {
+      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+      const sourceDir = join(testDir, 'source-dir');
+      const file1 = join(sourceDir, 'file1.txt');
 
-      const result = FileLib.readFileAsArray(nonExistentFile);
+      await mkdir(sourceDir);
+      await writeFile(file1, 'content1');
 
-      expect(result).toEqual([]);
-      expect(consoleSpy).toHaveBeenCalled();
+      FileLib.backupPath(sourceDir);
+
+      expect(FileLib.isPathExists(sourceDir)).toBe(false);
+      
+      const backupDirs = FileLib.readDirectory(testDir).filter(f => f.includes('.dotsx.backup-'));
+      expect(backupDirs.length).toBe(1);
+      const backupDirName = backupDirs[0] as string;
+      expect(FileLib.isDirectory(join(testDir, backupDirName))).toBe(true);
+      expect(FileLib.isFile(join(testDir, backupDirName, 'file1.txt'))).toBe(true);
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should backup symlink to file', async () => {
+      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+      const sourceFile = join(testDir, 'source.txt');
+      const linkFile = join(testDir, 'link.txt');
+      const content = 'test content';
+
+      await writeFile(sourceFile, content);
+      await symlink(sourceFile, linkFile);
+
+      FileLib.backupPath(linkFile);
+
+      expect(FileLib.isPathExists(linkFile)).toBe(false);
+      
+      const backupFiles = FileLib.readDirectory(testDir).filter(f => f.includes('.dotsx.backup-'));
+      expect(backupFiles.length).toBe(1);
+      const backupFileName = backupFiles[0] as string;
+      expect(FileLib.readFile(join(testDir, backupFileName))).toBe(content);
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should backup symlink to directory', async () => {
+      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+      const sourceDir = join(testDir, 'source-dir');
+      const linkDir = join(testDir, 'link-dir');
+      const file1 = join(sourceDir, 'file1.txt');
+
+      await mkdir(sourceDir);
+      await writeFile(file1, 'content1');
+      await symlink(sourceDir, linkDir);
+
+      FileLib.backupPath(linkDir);
+
+      expect(FileLib.isPathExists(linkDir)).toBe(false);
+      
+      const backupDirs = FileLib.readDirectory(testDir).filter(f => f.includes('.dotsx.backup-'));
+      expect(backupDirs.length).toBe(1);
+      const backupDirName = backupDirs[0] as string;
+      expect(FileLib.isDirectory(join(testDir, backupDirName))).toBe(true);
+      expect(FileLib.isFile(join(testDir, backupDirName, 'file1.txt'))).toBe(true);
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('safeSymlink', () => {
+    test('should create symlink when destination does not exist', async () => {
+      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+      const sourceFile = join(testDir, 'source.txt');
+      const linkFile = join(testDir, 'link.txt');
+      const content = 'test content';
+
+      await writeFile(sourceFile, content);
+      FileLib.safeSymlink(sourceFile, linkFile);
+
+      expect(FileLib.isSymLink(linkFile)).toBe(true);
+      expect(FileLib.isSymLinkContentCorrect(sourceFile, linkFile)).toBe(true);
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should backup existing file and create symlink', async () => {
+      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+      const sourceFile = join(testDir, 'source.txt');
+      const existingFile = join(testDir, 'existing.txt');
+      const sourceContent = 'source content';
+      const existingContent = 'existing content';
+
+      await writeFile(sourceFile, sourceContent);
+      await writeFile(existingFile, existingContent);
+
+      FileLib.safeSymlink(sourceFile, existingFile);
+
+      expect(FileLib.isSymLink(existingFile)).toBe(true);
+      expect(FileLib.isSymLinkContentCorrect(sourceFile, existingFile)).toBe(true);
+      
+      const backupFiles = FileLib.readDirectory(testDir).filter(f => f.includes('.dotsx.backup-'));
+      expect(backupFiles.length).toBe(1);
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should create symlink when source does not exist initially', async () => {
+      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+      const sourceFile = join(testDir, 'non-existent-source.txt');
+      const linkFile = join(testDir, 'link.txt');
+
+      FileLib.safeSymlink(sourceFile, linkFile);
+
+      expect(FileLib.isSymLink(linkFile)).toBe(true);
+
       consoleSpy.mockRestore();
     });
   });

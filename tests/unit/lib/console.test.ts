@@ -6,6 +6,7 @@ describe('ConsoleLib', () => {
 
   beforeEach(() => {
     consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+    consoleSpy.mockClear();
   });
 
   afterEach(() => {
@@ -14,6 +15,7 @@ describe('ConsoleLib', () => {
 
   describe('logListWithTitle', () => {
     test('should log title with count and items', () => {
+      consoleSpy.mockClear();
       const title = 'Test Items';
       const list = ['item1', 'item2', 'item3'];
 
@@ -27,6 +29,7 @@ describe('ConsoleLib', () => {
     });
 
     test('should handle empty list', () => {
+      consoleSpy.mockClear();
       const title = 'Empty List';
       const list: string[] = [];
 
@@ -37,6 +40,7 @@ describe('ConsoleLib', () => {
     });
 
     test('should handle single item list', () => {
+      consoleSpy.mockClear();
       const title = 'Single Item';
       const list = ['only-item'];
 
@@ -48,6 +52,7 @@ describe('ConsoleLib', () => {
     });
 
     test('should handle list with special characters', () => {
+      consoleSpy.mockClear();
       const title = 'Special Characters';
       const list = ['item-with-dashes', 'item_with_underscores', 'item.with.dots'];
 

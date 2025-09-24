@@ -157,12 +157,12 @@ export const initCommand = {
 
         // Move existing config to dotfiles (more efficient than copy + backup)
         if (FileLib.isDirectory(systemPath)) {
-          FileLib.moveDirectory(systemPath, dotfilesPath);
+          FileLib.copyDirectory(systemPath, dotfilesPath);
         } else {
-          FileLib.moveFile(systemPath, dotfilesPath);
+          FileLib.copyFile(systemPath, dotfilesPath);
         }
 
-        FileLib.safeSymlink(dotfilesPath, systemPath);
+        FileLib.safeSymlink(systemPath, dotfilesPath);
 
         console.log(`✅ Imported: ${FileLib.getDisplayPath(systemPath)}`);
       } else {

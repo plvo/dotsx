@@ -18,8 +18,11 @@ export const FileLib = {
   },
 
   isSymLink(path: string) {
-    if (!this.isPathExists(path)) return false;
-    return fs.lstatSync(path).isSymbolicLink() || false;
+    try {
+      return fs.lstatSync(path).isSymbolicLink() || false;
+    } catch {
+      return false;
+    }
   },
 
   isExecutable(path: string) {
@@ -58,29 +61,6 @@ export const FileLib = {
     }
   },
 
-  moveFile(src: string, dest: string) {
-    try {
-      if (!this.isFile(src)) {
-        this.createFile(src);
-      }
-      fs.copyFileSync(src, dest);
-      fs.unlinkSync(src);
-      console.log(`📦 Moved: ${this.getDisplayPath(src)} → ${this.getDisplayPath(dest)}`);
-    } catch (error) {
-      console.error(`❌ Error moving file: ${error}`);
-    }
-  },
-
-  moveDirectory(src: string, dest: string) {
-    try {
-      this.copyDirectory(src, dest);
-      this.deleteDirectory(src);
-      console.log(`📦 Moved: ${this.getDisplayPath(src)} → ${this.getDisplayPath(dest)}`);
-    } catch (error) {
-      console.error(`❌ Error moving directory: ${error}`);
-    }
-  },
-
   copyDirectory(src: string, dest: string) {
     if (!this.isPathExists(dest)) {
       this.createDirectory(dest);
@@ -116,6 +96,28 @@ export const FileLib = {
     }
   },
 
+  readFile(path: string): string {
+    return fs.readFileSync(path, 'utf8');
+  },
+
+  readFileAsArray(path: string): string[] {
+    try {
+      const content = this.readFile(path);
+      return content
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith('#'));
+    } catch (error) {
+      console.error(`❌ Error reading ${path}: ${error}`);
+      return [];
+    }
+  },
+
+  readDirectory(path: string): string[] {
+    if (!this.isDirectory(path)) return [];
+    return fs.readdirSync(path);
+  },
+
   writeToEndOfFile(path: string, content: string) {
     fs.appendFileSync(path, `${content}\n`);
   },
@@ -145,24 +147,6 @@ export const FileLib = {
 
   getDisplayPath(inputPath: string): string {
     return inputPath.replace(homedir(), '~');
-  },
-
-  readFileAsArray(path: string): string[] {
-    try {
-      const content = this.readFile(path);
-      return content
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line && !line.startsWith('#'));
-    } catch (error) {
-      console.error(`❌ Error reading ${path}: ${error}`);
-      return [];
-    }
-  },
-
-  readDirectory(path: string): string[] {
-    if (!this.isDirectory(path)) return [];
-    return fs.readdirSync(path);
   },
 
   backupPath(src: string) {
@@ -195,15 +179,11 @@ export const FileLib = {
    * If dest exists, it will be backed up and replaced by a new symlink
    */
   safeSymlink(src: string, dest: string) {
-    if (this.isPathExists(src)) {
-      this.backupPath(src);
+    if (this.isPathExists(dest)) {
+      this.backupPath(dest);
     }
 
     fs.symlinkSync(src, dest);
     console.log(`🔗 Symlink created: ${this.getDisplayPath(src)} <-> ${this.getDisplayPath(dest)}`);
-  },
-
-  readFile(path: string): string {
-    return fs.readFileSync(path, 'utf8');
   },
 };
