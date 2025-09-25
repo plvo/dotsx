@@ -38,9 +38,12 @@ export const FileLib = {
     return path.resolve(path.dirname(dest), actualTarget) === src;
   },
 
-  createFile(path: string, content: string = '') {
-    if (!this.isPathExists(path)) {
-      fs.writeFileSync(path, content);
+  createFile(filePath: string, content: string = '') {
+    if (!this.isPathExists(filePath)) {
+      // Ensure parent directory exists
+      const parentDir = path.dirname(filePath);
+      this.createDirectory(parentDir);
+      fs.writeFileSync(filePath, content);
     }
   },
 
