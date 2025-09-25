@@ -1,8 +1,8 @@
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { confirm, select, text } from '@clack/prompts';
 import { DOTSX } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
-import type { AllLinks } from '@/types';
+import type { AllLinks, Link } from '@/types';
 
 export const linkCommand = {
   async execute() {
@@ -29,18 +29,10 @@ export const linkCommand = {
 
     if (!pathInput) return;
 
-    const targetPath = FileLib.expandPath(String(pathInput));
-    const linkPath = this.getLinkPath(targetPath);
+    const systemPath = FileLib.expandPath(String(pathInput));
+    const dotsxPath = this.getDotsxPath(systemPath);
 
-    FileLib.createDirectory(dirname(linkPath));
-
-    if (FileLib.isDirectory(targetPath)) {
-      FileLib.copyDirectory(targetPath, linkPath);
-    } else {
-      FileLib.copyFile(targetPath, linkPath);
-    }
-
-    FileLib.safeSymlink(linkPath, targetPath);
+    FileLib.safeSymlink(systemPath, dotsxPath, true);
   },
 
   async syncLinks(links: AllLinks) {
@@ -53,14 +45,13 @@ export const linkCommand = {
     if (!proceed) return;
 
     let fixed = 0;
-    for (const { linkPath, targetPath } of links.incorrectSymlinks) {
+    for (const { systemPath, dotsxPath } of links.incorrectSymlinks) {
       try {
-        FileLib.createDirectory(dirname(targetPath));
-        FileLib.safeSymlink(linkPath, targetPath);
-        console.log(`✅ ${FileLib.getDisplayPath(targetPath)}`);
+        FileLib.safeSymlink(systemPath, dotsxPath);
+        console.log(`✅ ${FileLib.getDisplayPath(dotsxPath)}`);
         fixed++;
       } catch (err) {
-        console.log(`❌ ${FileLib.getDisplayPath(targetPath)}: ${err}`);
+        console.log(`❌ ${FileLib.getDisplayPath(dotsxPath)}: ${err}`);
       }
     }
 
@@ -77,14 +68,14 @@ export const linkCommand = {
     const correctSymlinks = [];
     const incorrectSymlinks = [];
 
-    for (const { linkPath, targetPath } of links) {
-      const displayPath = FileLib.getDisplayPath(targetPath);
-      const isCorrect = FileLib.isSymLinkContentCorrect(linkPath, targetPath);
+    for (const { systemPath, dotsxPath } of links) {
+      const displayPath = FileLib.getDisplayPath(dotsxPath);
+      const isCorrect = FileLib.isSymLinkContentCorrect(systemPath, dotsxPath);
       if (isCorrect) {
-        correctSymlinks.push({ linkPath, targetPath });
+        correctSymlinks.push({ systemPath, dotsxPath });
         console.log(`✅ ${displayPath}`);
       } else {
-        incorrectSymlinks.push({ linkPath, targetPath });
+        incorrectSymlinks.push({ systemPath, dotsxPath });
         console.log(`❌ ${displayPath}`);
       }
     }
@@ -94,11 +85,11 @@ export const linkCommand = {
     return { correctSymlinks, incorrectSymlinks };
   },
 
-  getSymlinks(): Array<{ linkPath: string; targetPath: string }> {
+  getSymlinks(): Array<Link> {
     if (!FileLib.isDirectory(DOTSX.SYMLINKS)) return [];
 
-    const scan = (dir: string, rel = ''): Array<{ linkPath: string; targetPath: string }> => {
-      const results: Array<{ linkPath: string; targetPath: string }> = [];
+    const scan = (dir: string, rel = ''): Array<Link> => {
+      const results: Array<Link> = [];
 
       for (const item of FileLib.readDirectory(dir)) {
         const fullPath = resolve(dir, item);
@@ -108,8 +99,8 @@ export const linkCommand = {
           results.push(...scan(fullPath, relPath));
         } else {
           results.push({
-            linkPath: fullPath,
-            targetPath: this.getTargetPath(relPath),
+            systemPath: this.getTargetPath(relPath),
+            dotsxPath: fullPath,
           });
         }
       }
@@ -120,7 +111,7 @@ export const linkCommand = {
     return scan(DOTSX.SYMLINKS);
   },
 
-  getLinkPath(systemPath: string): string {
+  getDotsxPath(systemPath: string): string {
     const displayPath = FileLib.getDisplayPath(systemPath);
     if (displayPath.startsWith('~')) {
       return resolve(DOTSX.SYMLINKS, displayPath);

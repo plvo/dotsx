@@ -18,8 +18,11 @@ export const FileLib = {
   },
 
   isSymLink(path: string) {
-    if (!this.isPathExists(path)) return false;
-    return fs.lstatSync(path).isSymbolicLink() || false;
+    try {
+      return fs.lstatSync(path).isSymbolicLink() || false;
+    } catch {
+      return false;
+    }
   },
 
   isExecutable(path: string) {
@@ -31,19 +34,22 @@ export const FileLib = {
     if (!this.isPathExists(dest)) return false;
     if (!this.isSymLink(dest)) return false;
 
-    const actualTarget = fs.readlinkSync(dest);
+    const actualTarget = this.getFileSymlinkPath(dest);
     return path.resolve(path.dirname(dest), actualTarget) === src;
   },
 
-  createFile(path: string, content: string = '') {
-    if (!this.isPathExists(path)) {
-      fs.writeFileSync(path, content);
+  createFile(filePath: string, content: string = '') {
+    if (!this.isPathExists(filePath)) {
+      // Ensure parent directory exists
+      const parentDir = path.dirname(filePath);
+      this.createDirectory(parentDir);
+      fs.writeFileSync(filePath, content);
     }
   },
 
-  createDirectory(path: string) {
-    if (!this.isPathExists(path)) {
-      fs.mkdirSync(path, { recursive: true });
+  createDirectory(dirPath: string) {
+    if (!this.isPathExists(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
     }
   },
 
@@ -55,29 +61,6 @@ export const FileLib = {
       fs.copyFileSync(src, dest);
     } catch (error) {
       console.error(`❌ Error copying file: ${error}`);
-    }
-  },
-
-  moveFile(src: string, dest: string) {
-    try {
-      if (!this.isFile(src)) {
-        this.createFile(src);
-      }
-      fs.copyFileSync(src, dest);
-      fs.unlinkSync(src);
-      console.log(`📦 Moved: ${this.getDisplayPath(src)} → ${this.getDisplayPath(dest)}`);
-    } catch (error) {
-      console.error(`❌ Error moving file: ${error}`);
-    }
-  },
-
-  moveDirectory(src: string, dest: string) {
-    try {
-      this.copyDirectory(src, dest);
-      this.deleteDirectory(src);
-      console.log(`📦 Moved: ${this.getDisplayPath(src)} → ${this.getDisplayPath(dest)}`);
-    } catch (error) {
-      console.error(`❌ Error moving directory: ${error}`);
     }
   },
 
@@ -116,6 +99,28 @@ export const FileLib = {
     }
   },
 
+  readFile(path: string): string {
+    return fs.readFileSync(path, 'utf8');
+  },
+
+  readFileAsArray(path: string): string[] {
+    try {
+      const content = this.readFile(path);
+      return content
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith('#'));
+    } catch (error) {
+      console.error(`❌ Error reading ${path}: ${error}`);
+      return [];
+    }
+  },
+
+  readDirectory(path: string): string[] {
+    if (!this.isDirectory(path)) return [];
+    return fs.readdirSync(path);
+  },
+
   writeToEndOfFile(path: string, content: string) {
     fs.appendFileSync(path, `${content}\n`);
   },
@@ -147,24 +152,6 @@ export const FileLib = {
     return inputPath.replace(homedir(), '~');
   },
 
-  readFileAsArray(path: string): string[] {
-    try {
-      const content = this.readFile(path);
-      return content
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line && !line.startsWith('#'));
-    } catch (error) {
-      console.error(`❌ Error reading ${path}: ${error}`);
-      return [];
-    }
-  },
-
-  readDirectory(path: string): string[] {
-    if (!this.isDirectory(path)) return [];
-    return fs.readdirSync(path);
-  },
-
   backupPath(src: string) {
     const dest = `${src}.dotsx.backup-${Date.now()}`;
 
@@ -191,19 +178,28 @@ export const FileLib = {
   },
 
   /**
-   * Sync a file from src to dest
-   * If dest exists, it will be backed up and replaced by a new symlink
+   * Creates a safe symlink from src (source file) to dest (symlink path).
+   * Automatically creates parent directories and backs up existing dest file.
+   * @param src - Source file/directory path (user content)
+   * @param dest - Destination symlink path (~/.dotsx/*)
+   * @param copyFirst - If true, copies src to dest before creating symlink
    */
-  safeSymlink(src: string, dest: string) {
-    if (this.isPathExists(src)) {
-      this.backupPath(src);
+  safeSymlink(src: string, dest: string, copyFirst = false) {
+    this.createDirectory(path.dirname(dest));
+
+    if (copyFirst && this.isPathExists(src)) {
+      if (this.isDirectory(src)) {
+        this.copyDirectory(src, dest);
+      } else {
+        this.copyFile(src, dest);
+      }
+    }
+
+    if (this.isPathExists(dest)) {
+      this.backupPath(dest);
     }
 
     fs.symlinkSync(src, dest);
     console.log(`🔗 Symlink created: ${this.getDisplayPath(src)} <-> ${this.getDisplayPath(dest)}`);
-  },
-
-  readFile(path: string): string {
-    return fs.readFileSync(path, 'utf8');
   },
 };

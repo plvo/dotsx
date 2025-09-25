@@ -1,7 +1,11 @@
 import os from 'node:os';
 import path from 'node:path';
 
-export const DOTSX_PATH: string = path.resolve(os.homedir(), '.dotsx');
+function getDOTSX_PATH(): string {
+  return process.env.DOTSX_PATH || path.resolve(process.env.HOME || os.homedir(), '.dotsx');
+}
+
+export const DOTSX_PATH: string = getDOTSX_PATH();
 
 export const DOTSX = {
   BIN: {
