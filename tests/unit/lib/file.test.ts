@@ -695,5 +695,59 @@ describe('FileLib', () => {
 
       consoleSpy.mockRestore();
     });
+
+    test('should copy file first when copyFirst=true for file', async () => {
+      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+      const sourceFile = join(testDir, 'source.txt');
+      const destFile = join(testDir, 'dest.txt');
+      const content = 'test content';
+
+      await writeFile(sourceFile, content);
+      FileLib.safeSymlink(sourceFile, destFile, true);
+
+      // After copyFirst=true, dest should be a symlink pointing to src
+      expect(FileLib.isSymLink(destFile)).toBe(true);
+      expect(FileLib.isSymLinkContentCorrect(sourceFile, destFile)).toBe(true);
+      
+      // There should be a backup file created since dest existed after copy
+      const backupFiles = FileLib.readDirectory(testDir).filter(f => f.includes('.dotsx.backup-'));
+      expect(backupFiles.length).toBe(1);
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should copy directory first when copyFirst=true for directory', async () => {
+      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+      const sourceDir = join(testDir, 'source-dir');
+      const destDir = join(testDir, 'dest-dir');
+      const file1 = join(sourceDir, 'file1.txt');
+
+      await mkdir(sourceDir);
+      await writeFile(file1, 'content1');
+
+      FileLib.safeSymlink(sourceDir, destDir, true);
+
+      // After copyFirst=true, dest should be a symlink pointing to src
+      expect(FileLib.isSymLink(destDir)).toBe(true);
+      expect(FileLib.isSymLinkContentCorrect(sourceDir, destDir)).toBe(true);
+      
+      // There should be a backup directory created since dest existed after copy
+      const backupDirs = FileLib.readDirectory(testDir).filter(f => f.includes('.dotsx.backup-'));
+      expect(backupDirs.length).toBe(1);
+
+      consoleSpy.mockRestore();
+    });
+
+    test('should not copy when copyFirst=true but source does not exist', async () => {
+      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+      const sourceFile = join(testDir, 'non-existent-source.txt');
+      const destFile = join(testDir, 'dest.txt');
+
+      FileLib.safeSymlink(sourceFile, destFile, true);
+
+      expect(FileLib.isSymLink(destFile)).toBe(true);
+
+      consoleSpy.mockRestore();
+    });
   });
 });

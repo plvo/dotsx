@@ -8,75 +8,75 @@ import type { Domain, OsType } from '@/types';
 
 export const initCommand = {
   async execute() {
-    const isInitialized = SystemLib.isInitialized();
-    console.log(isInitialized ? `✅ DotX initialized on ${DOTSX_PATH}` : '❌ DotX not initialized');
-
-    const os = await select({
-      message: 'What is your operating system?',
-      options: [{ value: 'debian', label: 'Debian' }],
-    });
-
-    const availableTerminalDomains = getDomainsByType('terminal');
-    const terminals = await multiselect({
-      message: 'What terminals do you want to initialize?',
-      options: availableTerminalDomains.map((domain) => ({
-        value: domain.name,
-        label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
-        hint: domain.symlinkPaths?.[SystemLib.getCurrentOsType()].join(', '),
-      })) satisfies Option<string>[],
-    });
-
-    const availableIdeDomains = getDomainsByType('ide');
-    const ides = await multiselect({
-      message: 'What IDEs do you want to initialize?',
-      options: availableIdeDomains.map((domain) => ({
-        value: domain.name,
-        label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
-        hint: domain.symlinkPaths?.[SystemLib.getCurrentOsType()].join(', '),
-      })) satisfies Option<string>[],
-    });
-
-    // Initialize bin directory
-    if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
-      FileLib.createDirectory(DOTSX.BIN.PATH);
-      FileLib.createFile(DOTSX.BIN.ALIAS);
-      console.log(`✅ Bin directory created: ${DOTSX.BIN.PATH}`);
-    } else {
-      console.log(`✅ Bin directory already exists: ${DOTSX.BIN.PATH}`);
-    }
-
-    // Initialize OS domain (create package files)
-    if (typeof os === 'string') {
-      const osDomain = getDomainByName(os);
-      if (osDomain) {
-        await this.initOs(osDomain);
-      }
-    }
-
-    // Initialize terminal domains
-    if (Array.isArray(terminals)) {
-      const currentOs = SystemLib.getCurrentOsType();
-
-      for (const terminalName of terminals) {
-        const domain = getDomainByName(terminalName);
-        if (domain) {
-          await this.initTerminal(domain, currentOs);
-        }
-      }
-    }
-
-    if (Array.isArray(ides)) {
-      const currentOs = SystemLib.getCurrentOsType();
-
-      for (const ideName of ides) {
-        const domain = getDomainByName(ideName);
-        if (domain) {
-          await this.importIdeConfigs(domain, currentOs);
-        }
-      }
-    }
-
     try {
+      const isInitialized = SystemLib.isInitialized();
+      console.log(isInitialized ? `✅ DotX initialized on ${DOTSX_PATH}` : '❌ DotX not initialized');
+
+      const os = await select({
+        message: 'What is your operating system?',
+        options: [{ value: 'debian', label: 'Debian' }],
+      });
+
+      const availableTerminalDomains = getDomainsByType('terminal');
+      const terminals = await multiselect({
+        message: 'What terminals do you want to initialize?',
+        options: availableTerminalDomains.map((domain) => ({
+          value: domain.name,
+          label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
+          hint: domain.symlinkPaths?.[SystemLib.getCurrentOsType()].join(', '),
+        })) satisfies Option<string>[],
+      });
+
+      const availableIdeDomains = getDomainsByType('ide');
+      const ides = await multiselect({
+        message: 'What IDEs do you want to initialize?',
+        options: availableIdeDomains.map((domain) => ({
+          value: domain.name,
+          label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
+          hint: domain.symlinkPaths?.[SystemLib.getCurrentOsType()].join(', '),
+        })) satisfies Option<string>[],
+      });
+
+      // Initialize bin directory
+      if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
+        FileLib.createDirectory(DOTSX.BIN.PATH);
+        FileLib.createFile(DOTSX.BIN.ALIAS);
+        console.log(`✅ Bin directory created: ${DOTSX.BIN.PATH}`);
+      } else {
+        console.log(`✅ Bin directory already exists: ${DOTSX.BIN.PATH}`);
+      }
+
+      // Initialize OS domain (create package files)
+      if (typeof os === 'string') {
+        const osDomain = getDomainByName(os);
+        if (osDomain) {
+          await this.initOs(osDomain);
+        }
+      }
+
+      // Initialize terminal domains
+      if (Array.isArray(terminals)) {
+        const currentOs = SystemLib.getCurrentOsType();
+
+        for (const terminalName of terminals) {
+          const domain = getDomainByName(terminalName);
+          if (domain) {
+            await this.initTerminal(domain, currentOs);
+          }
+        }
+      }
+
+      if (Array.isArray(ides)) {
+        const currentOs = SystemLib.getCurrentOsType();
+
+        for (const ideName of ides) {
+          const domain = getDomainByName(ideName);
+          if (domain) {
+            await this.importIdeConfigs(domain, currentOs);
+          }
+        }
+      }
+
       console.log(`\n🎉 Initialized in: ${DOTSX_PATH}`);
     } catch (error) {
       console.error(`❌ Error during initialization: ${String(error)}`);
@@ -124,13 +124,10 @@ export const initCommand = {
     for (const symlinkPath of domain.symlinkPaths[currentOs]) {
       const systemPath = FileLib.expandPath(symlinkPath);
       const fileName = symlinkPath.split('/').pop() || '';
-      const dotfilesPath = resolve(DOTSX.TERMINAL.PATH, fileName);
-
-      // Ensure dotfiles terminal directory exists
-      FileLib.createDirectory(DOTSX.TERMINAL.PATH);
+      const dotsxPath = resolve(DOTSX.TERMINAL.PATH, fileName);
 
       if (FileLib.isPathExists(systemPath)) {
-        FileLib.safeSymlink(systemPath, dotfilesPath);
+        FileLib.safeSymlink(systemPath, dotsxPath, true);
       } else {
         console.log(`⚠️ File not found: ${FileLib.getDisplayPath(systemPath)} (ignoring)`);
       }
@@ -149,20 +146,9 @@ export const initCommand = {
       const systemPath = FileLib.expandPath(symlinkPath);
 
       if (FileLib.isPathExists(systemPath)) {
-        const dotfilesPath = this.getDotfilesPath(domain, symlinkPath);
+        const dotsxPath = this.getDotfilesPath(domain, symlinkPath);
 
-        // Ensure dotfiles directory exists
-        const dotfilesDir = resolve(dotfilesPath, '..');
-        FileLib.createDirectory(dotfilesDir);
-
-        // Move existing config to dotfiles (more efficient than copy + backup)
-        if (FileLib.isDirectory(systemPath)) {
-          FileLib.copyDirectory(systemPath, dotfilesPath);
-        } else {
-          FileLib.copyFile(systemPath, dotfilesPath);
-        }
-
-        FileLib.safeSymlink(systemPath, dotfilesPath);
+        FileLib.safeSymlink(systemPath, dotsxPath, true);
 
         console.log(`✅ Imported: ${FileLib.getDisplayPath(systemPath)}`);
       } else {

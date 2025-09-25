@@ -34,7 +34,7 @@ export const FileLib = {
     if (!this.isPathExists(dest)) return false;
     if (!this.isSymLink(dest)) return false;
 
-    const actualTarget = fs.readlinkSync(dest);
+    const actualTarget = this.getFileSymlinkPath(dest);
     return path.resolve(path.dirname(dest), actualTarget) === src;
   },
 
@@ -44,9 +44,9 @@ export const FileLib = {
     }
   },
 
-  createDirectory(path: string) {
-    if (!this.isPathExists(path)) {
-      fs.mkdirSync(path, { recursive: true });
+  createDirectory(dirPath: string) {
+    if (!this.isPathExists(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
     }
   },
 
@@ -175,10 +175,23 @@ export const FileLib = {
   },
 
   /**
-   * Sync a file from src to dest
-   * If dest exists, it will be backed up and replaced by a new symlink
+   * Creates a safe symlink from src (source file) to dest (symlink path).
+   * Automatically creates parent directories and backs up existing dest file.
+   * @param src - Source file/directory path (user content)
+   * @param dest - Destination symlink path (~/.dotsx/*)
+   * @param copyFirst - If true, copies src to dest before creating symlink
    */
-  safeSymlink(src: string, dest: string) {
+  safeSymlink(src: string, dest: string, copyFirst = false) {
+    this.createDirectory(path.dirname(dest));
+
+    if (copyFirst && this.isPathExists(src)) {
+      if (this.isDirectory(src)) {
+        this.copyDirectory(src, dest);
+      } else {
+        this.copyFile(src, dest);
+      }
+    }
+
     if (this.isPathExists(dest)) {
       this.backupPath(dest);
     }

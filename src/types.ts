@@ -34,8 +34,8 @@ export type CliCommand = {
 };
 
 export type Link = {
-  linkPath: string;
-  targetPath: string;
+  systemPath: string;
+  dotsxPath: string;
 };
 
 export type AllLinks = {
