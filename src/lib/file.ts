@@ -184,7 +184,7 @@ export const FileLib = {
    * @param dest - Destination symlink path (~/.dotsx/*)
    * @param copyFirst - If true, copies src to dest before creating symlink
    */
-  safeSymlink(src: string, dest: string, copyFirst = false) {
+  safeSymlink(src: string, dest: string, copyFirst = false, backup = true) {
     this.createDirectory(path.dirname(dest));
 
     if (copyFirst && this.isPathExists(src)) {
@@ -195,7 +195,7 @@ export const FileLib = {
       }
     }
 
-    if (this.isPathExists(dest)) {
+    if (backup && this.isPathExists(dest)) {
       this.backupPath(dest);
     }
 

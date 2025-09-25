@@ -89,7 +89,7 @@ export const packageCommand = {
     for (const pkg of notInstalled) {
       try {
         console.log(`📦 Installing ${pkg}...`);
-        execSync(`${config.install} ${pkg}`, { stdio: 'pipe' });
+        execSync(`${config.install.replace('%s', pkg)}`, { stdio: 'pipe' });
         console.log(`✅ ${pkg}`);
       } catch (error) {
         console.log(`❌ ${pkg}: ${error}`);
@@ -129,7 +129,7 @@ export const packageCommand = {
     for (const pkg of selectedPackages) {
       try {
         console.log(`📦 Removing ${pkg}...`);
-        execSync(`${config.remove} ${pkg}`, { stdio: 'pipe' });
+        execSync(`${config.remove.replace('%s', pkg)}`, { stdio: 'pipe' });
         console.log(`✅ ${pkg}`);
       } catch (error) {
         console.log(`❌ ${pkg}: ${error}`);
