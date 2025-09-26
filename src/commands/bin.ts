@@ -1,30 +1,41 @@
 import { resolve } from 'node:path';
-import { confirm } from '@clack/prompts';
+import { confirm, log } from '@clack/prompts';
 import { DOTSX } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { SystemLib } from '@/lib/system';
 
 export const binCommand = {
   async execute() {
-    if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
-      console.log(`❌ Directory ${DOTSX.BIN.PATH} does not exist`);
-      return;
-    }
-
-    if (!FileLib.isFile(DOTSX.BIN.ALIAS)) {
+    if (!FileLib.isDirectory(DOTSX.BIN.PATH) || !FileLib.isFile(DOTSX.BIN.ALIAS)) {
       FileLib.createFile(DOTSX.BIN.ALIAS);
-      console.log(`✅ File ${DOTSX.BIN.ALIAS} created, relaunch the cli`);
+      log.info(`The bin config directory and alias file were created, relaunch the cli`);
       return;
     }
 
-    this.checkOrWriteSourceInRcFile();
+    const rcFile = SystemLib.getRcFilePath();
+    if (!rcFile) {
+      log.error(`No rc file found, relaunch the cli`);
+      return;
+    }
+    const content = FileLib.readFile(rcFile);
+    const sourcePattern = new RegExp(`source\\s+${DOTSX.BIN.ALIAS}`, 'm');
+
+    if (!sourcePattern.test(content)) {
+      FileLib.writeToEndOfFile(rcFile, `source ${DOTSX.BIN.ALIAS}`);
+      log.info(`✅ Source added to ${rcFile}`);
+    }
 
     const scriptFiles = this.readBinDirectory();
 
     if (scriptFiles.length === 0) {
-      console.log('ℹ️ No shell scripts found');
+      log.warn(`No shell scripts found, add some shell scripts to ${DOTSX.BIN.PATH}`);
       return;
     }
+
+    const scriptInAliasFile = this.getScriptInFile();
+
+    console.log('scriptInAliasFile', scriptInAliasFile);
+    
 
     const scriptsData = scriptFiles.map((script) => {
       const scriptName = FileLib.deleteFilenameExtension(script);
@@ -33,13 +44,13 @@ export const binCommand = {
       const isExecutable = FileLib.isExecutable(scriptPath);
       const hasAlias = this.checkAliasInFile(scriptName);
 
-      console.log(`- ${scriptName} \t ${isExecutable ? '✅' : '❌'} Executable \t ${hasAlias ? '✅' : '❌'} Alias`);
+      log.message(`- ${scriptPath} \t ${isExecutable ? '✅' : '❌'} Executable \t ${hasAlias ? '✅' : '❌'} Alias`);
 
       return { scriptName, scriptPath, isExecutable, hasAlias };
     });
 
     if (scriptsData.every((script) => script.isExecutable && script.hasAlias)) {
-      console.log('\n✅ All scripts are already configured');
+      log.success('All scripts are already configured');
       return;
     }
 
@@ -53,12 +64,12 @@ export const binCommand = {
     scriptsData.forEach((script) => {
       if (!script.hasAlias) {
         this.addAlias(script.scriptName, script.scriptPath);
-        console.log(`✅ ${script.scriptName} is now aliased`);
+        log.success(`${script.scriptName} is now aliased`);
       }
 
       if (!script.isExecutable) {
         FileLib.makeExecutable(script.scriptPath);
-        console.log(`✅ ${script.scriptName} is now executable`);
+        log.success(`${script.scriptName} is now executable`);
       }
     });
   },
@@ -78,22 +89,15 @@ export const binCommand = {
       .sort();
   },
 
-  /**
-   * Check if the rc file contains `source ~/.dotsx/bin/_dotsx-bin.aliases`
-   */
-  checkOrWriteSourceInRcFile(): boolean {
-    const rcFile = SystemLib.getRcFilePath();
-    const content = FileLib.readFile(rcFile);
-    const sourcePattern = new RegExp(`source\\s+${DOTSX.BIN.ALIAS}`, 'm');
-
-    if (sourcePattern.test(content)) {
-      console.log(`✅ Source exists in ${rcFile}`);
-      return true;
-    } else {
-      FileLib.writeToEndOfFile(rcFile, `source ${DOTSX.BIN.ALIAS}`);
-      console.log(`✅ Source added to ${rcFile}`);
-      return false;
+  getScriptInFile(): string[] {
+    const content = FileLib.readFile(DOTSX.BIN.ALIAS);
+    // Match lines like: alias name="path"
+    const matches = content.matchAll(/^alias\s+([a-zA-Z0-9_-]+)=["'][^"']*["']/gm);
+    const names: string[] = [];
+    for (const match of matches) {
+      if (match[1]) names.push(match[1]);
     }
+    return names;
   },
 
   checkAliasInFile(scriptName: string): boolean {

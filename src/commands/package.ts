@@ -1,36 +1,32 @@
 import { execSync } from 'node:child_process';
-import { confirm, multiselect, select } from '@clack/prompts';
-import { getDomainsByType } from '@/domains';
+import { confirm, log, multiselect, select } from '@clack/prompts';
+import { getDomainByDistro, getDomainByName } from '@/domains';
 import { ConsoleLib } from '@/lib/console';
 import { FileLib } from '@/lib/file';
+import { SystemLib } from '@/lib/system';
 import type { Domain, PackageManagerConfig } from '@/types';
 
 export const packageCommand = {
   async execute() {
-    const osDomains = getDomainsByType('os').filter((domain) => domain.packageManagers);
+    const osInfo = SystemLib.getOsInfo();
 
-    if (osDomains.length === 0) {
-      console.log('ℹ️ No OS domains with package managers found');
-      return;
-    }
-
-    console.log(`Available OS: ${osDomains.map((d) => d.name).join(', ')}`);
-
-    const selectedDomain = await select({
-      message: 'Which OS do you want to use?',
-      options: osDomains.map((domain) => ({
-        value: domain,
-        label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
-      })),
-    });
-
-    if (selectedDomain && typeof selectedDomain === 'object' && selectedDomain.packageManagers) {
-      await this.handleDomain(selectedDomain);
+    if (osInfo.distro) {
+      const domain = getDomainByDistro(osInfo.distro) || getDomainByName(osInfo.family);
+      if (domain) {
+        await this.handleDomain(domain);
+      } else {
+        log.error(`No domain found for ${osInfo.distro}`);
+        return;
+      }
     }
   },
 
   async handleDomain(domain: Domain) {
-    if (!domain.packageManagers) return;
+    if (!domain.packageManagers) {
+      log.error(`No package managers found for ${domain.name}`);
+      return;
+    }
+    
     const packageManagers = domain.packageManagers;
 
     const availableManagers = Object.keys(packageManagers);

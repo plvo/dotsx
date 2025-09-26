@@ -11,7 +11,7 @@ const defaultPackageManagersContent = (name: string) => {
 
 export const debianDomain: Domain = {
   name: 'debian',
-  distro: 'debian',
+  distro: ['debian', 'ubuntu'],
   type: 'os',
   availableOs: ['linux'],
   packageManagers: {
@@ -41,7 +41,7 @@ export const debianDomain: Domain = {
 
 export const fedoraDomain: Domain = {
   name: 'fedora',
-  distro: 'fedora',
+  distro: ['fedora'],
   type: 'os',
   availableOs: ['linux'],
   packageManagers: {
@@ -57,7 +57,7 @@ export const fedoraDomain: Domain = {
 
 export const archDomain: Domain = {
   name: 'arch',
-  distro: 'arch',
+  distro: ['arch'],
   type: 'os',
   availableOs: ['linux'],
   packageManagers: {
@@ -80,7 +80,7 @@ export const archDomain: Domain = {
 
 export const alpineDomain: Domain = {
   name: 'alpine',
-  distro: 'alpine',
+  distro: ['alpine'],
   type: 'os',
   availableOs: ['linux'],
   packageManagers: {
@@ -96,7 +96,7 @@ export const alpineDomain: Domain = {
 
 export const suseDomain: Domain = {
   name: 'suse',
-  distro: 'suse',
+  distro: ['suse'],
   type: 'os',
   availableOs: ['linux'],
   packageManagers: {

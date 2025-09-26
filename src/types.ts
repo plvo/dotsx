@@ -20,7 +20,7 @@ export type DomainType = 'ide' | 'os' | 'terminal';
 export interface Domain {
   name: string;
   type: DomainType;
-  distro: string | null;
+  distro: string[] | null;
   availableOs: Family[];
   packageManagers?: Record<string, PackageManagerConfig>;
   symlinkPaths?: Partial<Record<Family, string[]>>;

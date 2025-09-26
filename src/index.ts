@@ -6,18 +6,19 @@ import { initCommand } from './commands/init';
 import { linkCommand } from './commands/link';
 import { packageCommand } from './commands/package';
 import { ConsoleLib } from './lib/console';
-import { DotsxInfoLib } from './lib/system';
+import { DotsxInfoLib, SystemLib } from './lib/system';
 
 async function main() {
   intro('🚀 DotsX CLI');
 
+  const osInfo = SystemLib.getOsInfo();
   ConsoleLib.displayInfo();
 
   const isInitialized = DotsxInfoLib.isInitialized();
 
   if (!isInitialized) {
     const action = await select({
-      message: 'Welcome to DotsX CLI! How do you want to initialize?',
+      message: 'Welcome to DotsX! How do you want to initialize?',
       options: [
         {
           value: 'scratch',
@@ -37,12 +38,11 @@ async function main() {
     }
   } else {
     const action = await select({
-      message: 'Welcome back! What do you want to do?',
+      message: 'Welcome back!',
       options: [
-        { value: 'package', label: '📦 Manage packages' },
-        { value: 'link', label: '📋 Link files' },
-        { value: 'bin', label: '⚡ Manage bin scripts' },
-        { value: 'exit', label: '👋 Exit' },
+        { value: 'package', label: `📦 Manage ${osInfo.distro || osInfo.family} packages`, hint: 'Install, remove, and manage packages' },
+        { value: 'link', label: '📋 Symlink', hint: 'Create symlinks for files and directories' },
+        { value: 'bin', label: '⚡ Manage bin scripts', hint: 'Manage bin scripts and aliases' },
       ],
     });
 

@@ -88,6 +88,7 @@ export const initCommand = {
     }
 
     log.info(`📦 Initializing ${domain.name} package management...`);
+    const created: string[] = [];
 
     const osDirPath = resolve(DOTSX.OS.PATH, domain.name);
     FileLib.createDirectory(osDirPath);
@@ -97,11 +98,13 @@ export const initCommand = {
 
       if (!FileLib.isPathExists(configPath)) {
         FileLib.createFile(configPath, defaultContent);
-        log.success(`Created: ${FileLib.getDisplayPath(configPath)}`);
+        created.push(FileLib.getDisplayPath(configPath));
       } else {
-        log.success(`Already exists: ${FileLib.getDisplayPath(configPath)}`);
+        log.warn(`Already exists: ${FileLib.getDisplayPath(configPath)}`);
       }
     }
+
+    created.length > 0 && log.success(`Created:\n${created.join('\n')}`);
   },
 
   async initTerminal(domain: Domain, currentOs: Family) {

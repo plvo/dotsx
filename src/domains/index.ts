@@ -16,7 +16,7 @@ export function getDomainsByType(type: Domain['type']): Domain[] {
 }
 
 export function getDomainByDistro(distro: string): Domain | undefined {
-  return allDomains.find((domain) => domain.distro === distro);
+  return allDomains.find((domain) => domain.distro?.includes(distro));
 }
 
 export * from './ide';
