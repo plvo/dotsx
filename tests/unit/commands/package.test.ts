@@ -11,7 +11,7 @@ import type { Domain, PackageManagerConfig } from '@/types';
 // Mock child_process module
 const mockExecSync = mock(() => '');
 mock.module('node:child_process', () => ({
-  execSync: mockExecSync
+  execSync: mockExecSync,
 }));
 
 import { packageCommand } from '../../../src/commands/package';
@@ -45,16 +45,17 @@ describe('packageCommand', () => {
       const mockDomain = {
         name: 'debian',
         type: 'os',
-        availableOs: ['debian'],
+        distro: 'debian',
+        availableOs: ['linux'],
         packageManagers: {
           apt: {
             configPath: '/test/apt.txt',
             install: 'apt install',
             remove: 'apt remove',
             status: 'apt list --installed %s',
-            defaultContent: 'vim\ngit'
-          }
-        }
+            defaultContent: 'vim\ngit',
+          },
+        },
       } as Domain;
 
       const getDomainsByTypeSpy = spyOn(domains, 'getDomainsByType').mockReturnValue([mockDomain]);
@@ -75,8 +76,9 @@ describe('packageCommand', () => {
       const mockDomain = {
         name: 'debian',
         type: 'os',
-        availableOs: ['debian'],
-        packageManagers: {}
+        distro: 'debian',
+        availableOs: ['linux'],
+        packageManagers: {},
       } as Domain;
 
       const getDomainsByTypeSpy = spyOn(domains, 'getDomainsByType').mockReturnValue([mockDomain]);
@@ -98,23 +100,24 @@ describe('packageCommand', () => {
       const mockDomain = {
         name: 'debian',
         type: 'os',
-        availableOs: ['debian'],
+        distro: 'debian',
+        availableOs: ['linux'],
         packageManagers: {
           apt: {
             configPath: '/test/apt.txt',
             install: 'apt install',
             remove: 'apt remove',
             status: 'apt list --installed %s',
-            defaultContent: 'vim'
+            defaultContent: 'vim',
           },
           snap: {
             configPath: '/test/snap.txt',
             install: 'snap install',
             remove: 'snap remove',
             status: 'snap list %s',
-            defaultContent: 'code'
-          }
-        }
+            defaultContent: 'code',
+          },
+        },
       } as Domain;
 
       const selectSpy = spyOn(clackPrompts, 'select').mockResolvedValue('apt');
@@ -140,16 +143,17 @@ describe('packageCommand', () => {
       const mockDomain = {
         name: 'debian',
         type: 'os',
-        availableOs: ['debian'],
+        distro: 'debian',
+        availableOs: ['linux'],
         packageManagers: {
           apt: {
             configPath: '/test/apt.txt',
             install: 'apt install',
             remove: 'apt remove',
             status: 'apt list --installed %s',
-            defaultContent: 'vim'
-          }
-        }
+            defaultContent: 'vim',
+          },
+        },
       } as Domain;
 
       const selectSpy = spyOn(clackPrompts, 'select').mockResolvedValue(null);
@@ -170,14 +174,14 @@ describe('packageCommand', () => {
       install: 'apt install',
       remove: 'apt remove',
       status: 'apt list --installed %s',
-      defaultContent: 'vim\ngit'
+      defaultContent: 'vim\ngit',
     };
 
     test('should handle install action', async () => {
       const readFileAsArraySpy = spyOn(FileLib, 'readFileAsArray').mockReturnValue(['vim', 'git']);
       const handleStatusSpy = spyOn(packageCommand, 'handleStatus').mockReturnValue({
         installed: ['vim'],
-        notInstalled: ['git']
+        notInstalled: ['git'],
       });
       const selectSpy = spyOn(clackPrompts, 'select').mockResolvedValue('install');
       const handleInstallSpy = spyOn(packageCommand, 'handleInstall').mockImplementation(async () => {});
@@ -196,7 +200,7 @@ describe('packageCommand', () => {
       const readFileAsArraySpy = spyOn(FileLib, 'readFileAsArray').mockReturnValue(['vim', 'git']);
       const handleStatusSpy = spyOn(packageCommand, 'handleStatus').mockReturnValue({
         installed: ['vim', 'git'],
-        notInstalled: []
+        notInstalled: [],
       });
       const selectSpy = spyOn(clackPrompts, 'select').mockResolvedValue('remove');
       const handleRemoveSpy = spyOn(packageCommand, 'handleRemove').mockImplementation(async () => {});
@@ -215,7 +219,7 @@ describe('packageCommand', () => {
       const readFileAsArraySpy = spyOn(FileLib, 'readFileAsArray').mockReturnValue([]);
       const handleStatusSpy = spyOn(packageCommand, 'handleStatus').mockReturnValue({
         installed: [],
-        notInstalled: []
+        notInstalled: [],
       });
       const getDisplayPathSpy = spyOn(FileLib, 'getDisplayPath').mockReturnValue('/test/packages.txt');
 
@@ -235,7 +239,7 @@ describe('packageCommand', () => {
       install: 'apt install',
       remove: 'apt remove',
       status: 'apt list --installed %s',
-      defaultContent: 'vim'
+      defaultContent: 'vim',
     };
 
     test('should install packages when confirmed', async () => {
@@ -289,7 +293,7 @@ describe('packageCommand', () => {
       install: 'apt install',
       remove: 'apt remove',
       status: 'apt list --installed %s',
-      defaultContent: 'vim'
+      defaultContent: 'vim',
     };
 
     test('should remove selected packages when confirmed', async () => {
@@ -359,18 +363,18 @@ describe('packageCommand', () => {
       install: 'apt install',
       remove: 'apt remove',
       status: 'apt list --installed %s',
-      defaultContent: 'vim'
+      defaultContent: 'vim',
     };
 
     test('should categorize installed and not installed packages', () => {
       const isPackageInstalledSpy = spyOn(packageCommand, 'isPackageInstalled')
-        .mockReturnValueOnce(true)  // vim is installed (1st call)
+        .mockReturnValueOnce(true) // vim is installed (1st call)
         .mockReturnValueOnce(false) // git is not installed (2nd call)
-        .mockReturnValueOnce(true)  // curl is installed (3rd call)
+        .mockReturnValueOnce(true) // curl is installed (3rd call)
         .mockReturnValueOnce(false) // docker is not installed (4th call)
-        .mockReturnValueOnce(true)  // vim is installed (5th call - 2nd filter)
+        .mockReturnValueOnce(true) // vim is installed (5th call - 2nd filter)
         .mockReturnValueOnce(false) // git is not installed (6th call - 2nd filter)
-        .mockReturnValueOnce(true)  // curl is installed (7th call - 2nd filter)
+        .mockReturnValueOnce(true) // curl is installed (7th call - 2nd filter)
         .mockReturnValueOnce(false); // docker is not installed (8th call - 2nd filter)
 
       const logListWithTitleSpy = spyOn(ConsoleLib, 'logListWithTitle').mockImplementation(() => {});
@@ -394,7 +398,7 @@ describe('packageCommand', () => {
       install: 'apt install',
       remove: 'apt remove',
       status: 'apt list --installed %s',
-      defaultContent: 'vim'
+      defaultContent: 'vim',
     };
 
     test('should return true for installed package', () => {

@@ -408,14 +408,11 @@ describe('FileLib', () => {
     });
 
     test('should handle non-existent file', () => {
-      const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
       const nonExistentFile = join(testDir, 'non-existent.txt');
 
       const result = FileLib.readFileAsArray(nonExistentFile);
 
       expect(result).toEqual([]);
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
     });
   });
 
@@ -570,9 +567,7 @@ describe('FileLib', () => {
 
       await writeFile(sourceFile, content);
       
-      const beforeBackup = Date.now();
       FileLib.backupPath(sourceFile);
-      const afterBackup = Date.now();
 
       const backupFiles = FileLib.readDirectory(testDir).filter((f) => /\.dotsx\.\d{17}\.backup$/.test(f));
       expect(backupFiles.length).toBe(1);
@@ -590,7 +585,7 @@ describe('FileLib', () => {
         expect(timestamp).toHaveLength(17);
         
         // Verify year is current
-        const year = parseInt(timestamp.substring(0, 4));
+        const year = Number.parseInt(timestamp.substring(0, 4), 10);
         expect(year).toBeGreaterThanOrEqual(new Date().getFullYear());
       }
 
@@ -697,7 +692,6 @@ describe('FileLib', () => {
 
   describe('safeSymlink', () => {
     test('should create symlink when destination does not exist', async () => {
-      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
       const sourceFile = join(testDir, 'source.txt');
       const linkFile = join(testDir, 'link.txt');
       const content = 'test content';
@@ -707,13 +701,9 @@ describe('FileLib', () => {
 
       expect(FileLib.isSymLink(linkFile)).toBe(true);
       expect(FileLib.isSymLinkContentCorrect(sourceFile, linkFile)).toBe(true);
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('🔗 Symlink created:'));
-
-      consoleSpy.mockRestore();
     });
 
     test('should backup existing file and create symlink with content verification', async () => {
-      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
       const sourceFile = join(testDir, 'source.txt');
       const existingFile = join(testDir, 'existing.txt');
       const sourceContent = 'source content';
@@ -734,16 +724,9 @@ describe('FileLib', () => {
       
       const backupContent = FileLib.readFile(join(testDir, backupFiles[0] as string));
       expect(backupContent).toBe(existingContent);
-      
-      // Verify console messages
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('💾 Backup created:'));
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('🔗 Symlink created:'));
-
-      consoleSpy.mockRestore();
     });
 
     test('should backup existing directory and create symlink', async () => {
-      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
       const sourceDir = join(testDir, 'source-dir');
       const existingDir = join(testDir, 'existing-dir');
       
@@ -772,8 +755,6 @@ describe('FileLib', () => {
       expect(FileLib.isFile(join(backupPath, 'another.txt'))).toBe(true);
       expect(FileLib.readFile(join(backupPath, 'existing.txt'))).toBe('existing content');
       expect(FileLib.readFile(join(backupPath, 'another.txt'))).toBe('another content');
-
-      consoleSpy.mockRestore();
     });
 
     test('should create parent directories when they do not exist', async () => {
@@ -837,8 +818,7 @@ describe('FileLib', () => {
       const consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
       
       // Mock fs.symlinkSync to throw an error
-      const originalSymlinkSync = require('fs').symlinkSync;
-      const symlinkSyncSpy = spyOn(require('fs'), 'symlinkSync').mockImplementation(() => {
+      const symlinkSyncSpy = spyOn(require('node:fs'), 'symlinkSync').mockImplementation(() => {
         throw new Error('Permission denied');
       });
 

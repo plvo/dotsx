@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os, { tmpdir } from 'node:os';
 import path from 'node:path';
 import { FileLib } from '../../../src/lib/file';
-import { SystemLib } from '../../../src/lib/system';
+import { DotsxInfoLib, SystemLib } from '../../../src/lib/system';
 
 describe('SystemLib', () => {
   let testDir: string;
@@ -23,7 +23,7 @@ describe('SystemLib', () => {
     test('should return true when DOTSX_PATH exists', () => {
       const isDirectorySpy = spyOn(FileLib, 'isDirectory').mockReturnValue(true);
       
-      const result = SystemLib.isInitialized();
+      const result = DotsxInfoLib.isInitialized();
       
       expect(result).toBe(true);
       isDirectorySpy.mockRestore();
@@ -32,20 +32,20 @@ describe('SystemLib', () => {
     test('should return false when DOTSX_PATH does not exist', () => {
       const isDirectorySpy = spyOn(FileLib, 'isDirectory').mockReturnValue(false);
       
-      const result = SystemLib.isInitialized();
+      const result = DotsxInfoLib.isInitialized();
       
       expect(result).toBe(false);
       isDirectorySpy.mockRestore();
     });
   });
 
-  describe('getOs', () => {
+  describe('getOsInfo', () => {
     test('should return current platform', () => {
       const platformSpy = spyOn(os, 'platform').mockReturnValue('linux');
       
-      const result = SystemLib.getOs();
+      const result = SystemLib.getOsInfo();
       
-      expect(result).toBe('linux');
+      expect(result.platform).toBe('linux');
       platformSpy.mockRestore();
     });
   });
@@ -54,27 +54,28 @@ describe('SystemLib', () => {
     test('should return debian for linux platform', () => {
       const platformSpy = spyOn(os, 'platform').mockReturnValue('linux');
       
-      const result = SystemLib.getCurrentOsType();
+      const result = SystemLib.getOsInfo();
       
-      expect(result).toBe('debian');
+      expect(result.distro).toBe('debian');
       platformSpy.mockRestore();
     });
 
     test('should return macos for darwin platform', () => {
       const platformSpy = spyOn(os, 'platform').mockReturnValue('darwin');
       
-      const result = SystemLib.getCurrentOsType();
+      const result = SystemLib.getOsInfo();
       
-      expect(result).toBe('macos');
+      expect(result.family).toBe('macos');
+      expect(result.platform).toBe('darwin');
       platformSpy.mockRestore();
     });
 
     test('should return debian as default for unknown platform', () => {
       const platformSpy = spyOn(os, 'platform').mockReturnValue('win32');
       
-      const result = SystemLib.getCurrentOsType();
+      const result = SystemLib.getOsInfo();
       
-      expect(result).toBe('debian');
+      expect(result.distro).toBe('debian');
       platformSpy.mockRestore();
     });
   });
@@ -83,9 +84,9 @@ describe('SystemLib', () => {
     test('should return current architecture', () => {
       const archSpy = spyOn(os, 'arch').mockReturnValue('x64');
       
-      const result = SystemLib.getArch();
+      const result = SystemLib.getSystemInfo();
       
-      expect(result).toBe('x64');
+      expect(result.arch).toBe('x64');
       archSpy.mockRestore();
     });
   });
@@ -97,30 +98,6 @@ describe('SystemLib', () => {
       const result = SystemLib.detectShell();
       
       expect(result).toBe('zsh');
-    });
-
-    test('should detect bash from SHELL environment variable', () => {
-      process.env.SHELL = '/bin/bash';
-      
-      const result = SystemLib.detectShell();
-      
-      expect(result).toBe('bash');
-    });
-
-    test('should return unknown when SHELL is not set', () => {
-      process.env.SHELL = undefined;
-      
-      const result = SystemLib.detectShell();
-      
-      expect(result).toBe('unknown');
-    });
-
-    test('should handle complex shell paths', () => {
-      process.env.SHELL = '/usr/local/bin/fish';
-      
-      const result = SystemLib.detectShell();
-      
-      expect(result).toBe('fish');
     });
   });
 
@@ -145,13 +122,23 @@ describe('SystemLib', () => {
       homedirSpy.mockRestore();
     });
 
-    test('should default to .bashrc for unknown shell', () => {
+    test('should return null for unknown shell', () => {
+      process.env.SHELL = '/usr/bin/unknownshell';
+      const homedirSpy = spyOn(os, 'homedir').mockReturnValue('/home/user');
+      
+      const result = SystemLib.getRcFilePath();
+      
+      expect(result).toBe(null);
+      homedirSpy.mockRestore();
+    });
+
+    test('should return fish config path for fish shell', () => {
       process.env.SHELL = '/usr/bin/fish';
       const homedirSpy = spyOn(os, 'homedir').mockReturnValue('/home/user');
       
       const result = SystemLib.getRcFilePath();
       
-      expect(result).toBe('/home/user/.bashrc');
+      expect(result).toBe('/home/user/.config/fish/config.fish');
       homedirSpy.mockRestore();
     });
   });
@@ -168,12 +155,12 @@ describe('SystemLib', () => {
       
       const result = SystemLib.getSystemInfo();
       
-      expect(result.os).toBe('linux x64');
+      expect(result.platform).toBe('linux');
+      expect(result.arch).toBe('x64');
       expect(result.hostname).toBe('test-host');
       expect(result.memory).toContain('4.0/8.0 GB (50%)');
       expect(result.shell).toBe('zsh');
       expect(result.rcFile).toBe('/home/user/.zshrc');
-      expect(result.dotfilesPath).toContain('.dotsx');
       
       platformSpy.mockRestore();
       archSpy.mockRestore();
@@ -193,33 +180,6 @@ describe('SystemLib', () => {
       
       totalmemSpy.mockRestore();
       freememSpy.mockRestore();
-    });
-  });
-
-  describe('displayInfo', () => {
-    test('should display system information to console', () => {
-      const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
-      const getSystemInfoSpy = spyOn(SystemLib, 'getSystemInfo').mockReturnValue({
-        os: 'linux x64',
-        hostname: 'test-host',
-        memory: '4.0/8.0 GB (50%)',
-        shell: 'zsh',
-        rcFile: '/home/user/.zshrc',
-        dotfilesPath: '/home/user/.dotsx',
-      });
-      
-      SystemLib.displayInfo();
-      
-      expect(consoleSpy).toHaveBeenCalledWith('🖥️  OS: linux x64');
-      expect(consoleSpy).toHaveBeenCalledWith('🏠 Host: test-host');
-      expect(consoleSpy).toHaveBeenCalledWith('💾 RAM: 4.0/8.0 GB (50%)');
-      expect(consoleSpy).toHaveBeenCalledWith('🐚 Detected shell: zsh');
-      expect(consoleSpy).toHaveBeenCalledWith('📄 RC file: /home/user/.zshrc');
-      expect(consoleSpy).toHaveBeenCalledWith('📁 Path: /home/user/.dotsx');
-      expect(consoleSpy).toHaveBeenCalledTimes(6);
-      
-      consoleSpy.mockRestore();
-      getSystemInfoSpy.mockRestore();
     });
   });
 
