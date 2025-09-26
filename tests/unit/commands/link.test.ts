@@ -73,7 +73,7 @@ describe('linkCommand', () => {
 
       await linkCommand.addLink();
 
-      expect(safeSymlinkSpy).toHaveBeenCalledWith(expect.any(String), expect.any(String), true);
+      expect(safeSymlinkSpy).toHaveBeenCalledWith(expect.any(String), expect.any(String)); 
 
       textSpy.mockRestore();
       expandPathSpy.mockRestore();
@@ -98,7 +98,7 @@ describe('linkCommand', () => {
 
       await linkCommand.addLink();
 
-      expect(safeSymlinkSpy).toHaveBeenCalledWith(expect.any(String), expect.any(String), true);
+      expect(safeSymlinkSpy).toHaveBeenCalledWith(expect.any(String), expect.any(String));
 
       textSpy.mockRestore();
       expandPathSpy.mockRestore();

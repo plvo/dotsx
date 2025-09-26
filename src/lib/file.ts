@@ -153,25 +153,23 @@ export const FileLib = {
   },
 
   backupPath(src: string) {
-    const dest = `${src}.dotsx.backup-${Date.now()}`;
+    // YYYYMMDDHHMMSSMMM
+    const formattedTimestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 17);
+
+    const dest = `${src}.dotsx.${formattedTimestamp}.backup`;
 
     if (this.isSymLink(src)) {
       // If it's a symlink, backup the target content
       const realPath = this.getFileSymlinkPath(src);
       const resolvedPath = path.resolve(path.dirname(src), realPath);
 
-      if (this.isDirectory(resolvedPath)) {
-        this.copyDirectory(resolvedPath, dest);
-      } else {
-        this.copyFile(resolvedPath, dest);
-      }
+      this.backupPath(resolvedPath);
+
       fs.unlinkSync(src); // Remove the symlink
     } else if (this.isDirectory(src)) {
       this.copyDirectory(src, dest);
-      this.deleteDirectory(src);
     } else if (this.isFile(src)) {
       this.copyFile(src, dest);
-      this.deleteFile(src);
     }
 
     console.log(`💾 Backup created: ${this.getDisplayPath(dest)}`);
@@ -184,19 +182,16 @@ export const FileLib = {
    * @param dest - Destination symlink path (~/.dotsx/*)
    * @param copyFirst - If true, copies src to dest before creating symlink
    */
-  safeSymlink(src: string, dest: string, copyFirst = false, backup = true) {
+  safeSymlink(src: string, dest: string) {
+    // Create parent directory if it doesn't exist
     this.createDirectory(path.dirname(dest));
 
-    if (copyFirst && this.isPathExists(src)) {
-      if (this.isDirectory(src)) {
-        this.copyDirectory(src, dest);
-      } else {
-        this.copyFile(src, dest);
-      }
-    }
-
-    if (backup && this.isPathExists(dest)) {
+    if (this.isFile(dest)) {
       this.backupPath(dest);
+      this.deleteFile(dest);
+    } else if (this.isDirectory(dest)) {
+      this.backupPath(dest);
+      this.deleteDirectory(dest);
     }
 
     fs.symlinkSync(src, dest);

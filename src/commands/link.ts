@@ -32,7 +32,7 @@ export const linkCommand = {
     const systemPath = FileLib.expandPath(String(pathInput));
     const dotsxPath = this.getDotsxPath(systemPath);
 
-    FileLib.safeSymlink(systemPath, dotsxPath, true);
+    FileLib.safeSymlink(systemPath, dotsxPath);
   },
 
   async syncLinks(links: AllLinks) {

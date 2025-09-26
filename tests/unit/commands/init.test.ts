@@ -32,7 +32,7 @@ describe('initCommand', () => {
         .mockResolvedValueOnce(['zsh'])
         .mockResolvedValueOnce(['vscode']);
       const getDomainsByTypeSpy = spyOn(domains, 'getDomainsByType').mockReturnValue([
-        { name: 'zsh', type: 'terminal' } as Domain
+        { name: 'zsh', type: 'terminal' } as Domain,
       ]);
       const getDomainByNameSpy = spyOn(domains, 'getDomainByName').mockReturnValue({
         name: 'debian',
@@ -44,9 +44,9 @@ describe('initCommand', () => {
             install: 'apt install',
             remove: 'apt remove',
             status: 'apt list',
-            defaultContent: 'test content'
-          }
-        }
+            defaultContent: 'test content',
+          },
+        },
       } as Domain);
       const isDirectorySpy = spyOn(FileLib, 'isDirectory').mockReturnValue(false);
       const createDirectorySpy = spyOn(FileLib, 'createDirectory').mockImplementation(() => {});
@@ -73,9 +73,7 @@ describe('initCommand', () => {
     test('should show already initialized message when already set up', async () => {
       const isInitializedSpy = spyOn(SystemLib, 'isInitialized').mockReturnValue(true);
       const selectSpy = spyOn(clackPrompts, 'select').mockResolvedValue('debian');
-      const multiselectSpy = spyOn(clackPrompts, 'multiselect')
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
+      const multiselectSpy = spyOn(clackPrompts, 'multiselect').mockResolvedValueOnce([]).mockResolvedValueOnce([]);
       const getDomainsByTypeSpy = spyOn(domains, 'getDomainsByType').mockReturnValue([]);
       const isDirectorySpy = spyOn(FileLib, 'isDirectory').mockReturnValue(true);
 
@@ -138,16 +136,16 @@ describe('initCommand', () => {
             install: 'apt install',
             remove: 'apt remove',
             status: 'apt list',
-            defaultContent: 'test apt content'
+            defaultContent: 'test apt content',
           },
           snap: {
             configPath: path.join(testDir, 'snap.txt'),
             install: 'snap install',
             remove: 'snap remove',
             status: 'snap list',
-            defaultContent: 'test snap content'
-          }
-        }
+            defaultContent: 'test snap content',
+          },
+        },
       } as Domain;
 
       const createDirectorySpy = spyOn(FileLib, 'createDirectory').mockImplementation(() => {});
@@ -187,9 +185,9 @@ describe('initCommand', () => {
             install: 'apt install',
             remove: 'apt remove',
             status: 'apt list',
-            defaultContent: 'content'
-          }
-        }
+            defaultContent: 'content',
+          },
+        },
       } as Domain;
 
       const createDirectorySpy = spyOn(FileLib, 'createDirectory').mockImplementation(() => {});
@@ -214,8 +212,8 @@ describe('initCommand', () => {
       const domain = {
         name: 'zsh',
         symlinkPaths: {
-          debian: ['/home/user/.zshrc']
-        }
+          debian: ['/home/user/.zshrc'],
+        },
       } as Domain;
 
       const expandPathSpy = spyOn(FileLib, 'expandPath').mockReturnValue('/home/user/.zshrc');
@@ -225,7 +223,7 @@ describe('initCommand', () => {
 
       await initCommand.initTerminal(domain, 'debian');
 
-      expect(safeSymlinkSpy).toHaveBeenCalledWith('/home/user/.zshrc', path.resolve(DOTSX.TERMINAL.PATH, '.zshrc'), true);
+      expect(safeSymlinkSpy).toHaveBeenCalledWith('/home/user/.zshrc', path.resolve(DOTSX.TERMINAL.PATH, '.zshrc'));
 
       expandPathSpy.mockRestore();
       createDirectorySpy.mockRestore();
@@ -237,8 +235,8 @@ describe('initCommand', () => {
       const domain = {
         name: 'zsh',
         symlinkPaths: {
-          debian: ['/home/user/.zshrc']
-        }
+          debian: ['/home/user/.zshrc'],
+        },
       } as Domain;
 
       const expandPathSpy = spyOn(FileLib, 'expandPath').mockReturnValue('/home/user/.zshrc');
@@ -259,7 +257,7 @@ describe('initCommand', () => {
     test('should handle domain without symlink paths for current OS', async () => {
       const domain = {
         name: 'zsh',
-        symlinkPaths: {}
+        symlinkPaths: {},
       } as Domain;
 
       await initCommand.initTerminal(domain, 'debian');
@@ -273,8 +271,8 @@ describe('initCommand', () => {
       const domain = {
         name: 'vscode',
         symlinkPaths: {
-          debian: ['/home/user/.config/Code/User/settings.json']
-        }
+          debian: ['/home/user/.config/Code/User/settings.json'],
+        },
       } as Domain;
 
       const expandPathSpy = spyOn(FileLib, 'expandPath').mockReturnValue('/home/user/.config/Code/User/settings.json');
@@ -287,7 +285,10 @@ describe('initCommand', () => {
 
       await initCommand.importIdeConfigs(domain, 'debian');
 
-      expect(safeSymlinkSpy).toHaveBeenCalledWith('/home/user/.config/Code/User/settings.json', path.resolve(DOTSX.IDE.PATH, 'vscode', 'settings.json'), true);
+      expect(safeSymlinkSpy).toHaveBeenCalledWith(
+        '/home/user/.config/Code/User/settings.json',
+        path.resolve(DOTSX.IDE.PATH, 'vscode', 'settings.json'),
+      );
       expect(consoleSpy).toHaveBeenCalledWith('✅ Imported: /home/user/.config/Code/User/settings.json');
 
       expandPathSpy.mockRestore();
@@ -303,8 +304,8 @@ describe('initCommand', () => {
       const domain = {
         name: 'vscode',
         symlinkPaths: {
-          debian: ['/home/user/.config/Code/User/']
-        }
+          debian: ['/home/user/.config/Code/User/'],
+        },
       } as Domain;
 
       const expandPathSpy = spyOn(FileLib, 'expandPath').mockReturnValue('/home/user/.config/Code/User/');
@@ -317,7 +318,10 @@ describe('initCommand', () => {
 
       await initCommand.importIdeConfigs(domain, 'debian');
 
-      expect(safeSymlinkSpy).toHaveBeenCalledWith('/home/user/.config/Code/User/', path.resolve(DOTSX.IDE.PATH, 'vscode'), true);
+      expect(safeSymlinkSpy).toHaveBeenCalledWith(
+        '/home/user/.config/Code/User/',
+        path.resolve(DOTSX.IDE.PATH, 'vscode'),
+      );
 
       expandPathSpy.mockRestore();
       isPathExistsSpy.mockRestore();
@@ -332,8 +336,8 @@ describe('initCommand', () => {
       const domain = {
         name: 'vscode',
         symlinkPaths: {
-          debian: ['/home/user/.config/Code/User/settings.json']
-        }
+          debian: ['/home/user/.config/Code/User/settings.json'],
+        },
       } as Domain;
 
       const expandPathSpy = spyOn(FileLib, 'expandPath').mockReturnValue('/home/user/.config/Code/User/settings.json');
@@ -342,7 +346,9 @@ describe('initCommand', () => {
 
       await initCommand.importIdeConfigs(domain, 'debian');
 
-      expect(consoleSpy).toHaveBeenCalledWith('⚠️ File not found: /home/user/.config/Code/User/settings.json (ignoring)');
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '⚠️ File not found: /home/user/.config/Code/User/settings.json (ignoring)',
+      );
 
       expandPathSpy.mockRestore();
       isPathExistsSpy.mockRestore();
@@ -352,7 +358,7 @@ describe('initCommand', () => {
     test('should handle domain without symlink paths', async () => {
       const domain = {
         name: 'vscode',
-        symlinkPaths: {}
+        symlinkPaths: {},
       } as Domain;
 
       await initCommand.importIdeConfigs(domain, 'debian');

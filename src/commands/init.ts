@@ -127,7 +127,7 @@ export const initCommand = {
       const dotsxPath = resolve(DOTSX.TERMINAL.PATH, fileName);
 
       if (FileLib.isPathExists(systemPath)) {
-        FileLib.safeSymlink(systemPath, dotsxPath, true);
+        FileLib.safeSymlink(systemPath, dotsxPath);
       } else {
         console.log(`⚠️ File not found: ${FileLib.getDisplayPath(systemPath)} (ignoring)`);
       }
@@ -148,7 +148,7 @@ export const initCommand = {
       if (FileLib.isPathExists(systemPath)) {
         const dotsxPath = this.getDotfilesPath(domain, symlinkPath);
 
-        FileLib.safeSymlink(systemPath, dotsxPath, true);
+        FileLib.safeSymlink(systemPath, dotsxPath);
 
         console.log(`✅ Imported: ${FileLib.getDisplayPath(systemPath)}`);
       } else {
