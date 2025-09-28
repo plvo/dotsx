@@ -18,7 +18,7 @@ async function main() {
 
   if (!isInitialized) {
     const action = await select({
-      message: 'Welcome to DotsX! How do you want to initialize?',
+      message: 'Welcome to DotsX! How do you want to initialize your configuration?',
       options: [
         {
           value: 'scratch',
@@ -26,10 +26,10 @@ async function main() {
           hint: 'Create a new ~/.dotsx directory with all the configurations',
         },
         {
-         value: 'git',
-         label: '🔧 From Git',
-         hint: 'Clone a git repository into ~/.dotsx, git must be configured',
-        }
+          value: 'git',
+          label: '🔧 From Git',
+          hint: 'Clone a git repository into ~/.dotsx, git must be configured',
+        },
       ],
     });
 
@@ -38,9 +38,13 @@ async function main() {
     }
   } else {
     const action = await select({
-      message: 'Welcome back!',
+      message: 'Welcome!',
       options: [
-        { value: 'package', label: `📦 Manage ${osInfo.distro || osInfo.family} packages`, hint: 'Install, remove, and manage packages' },
+        {
+          value: 'package',
+          label: `📦 Manage ${osInfo.distro || osInfo.family} packages`,
+          hint: 'Install, remove, and manage packages',
+        },
         { value: 'link', label: '📋 Symlink', hint: 'Create symlinks for files and directories' },
         { value: 'bin', label: '⚡ Manage bin scripts', hint: 'Manage bin scripts and aliases' },
       ],

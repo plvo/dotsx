@@ -11,7 +11,7 @@ export const ConsoleLib = {
 
   displayInfo() {
     const info = SystemLib.getSystemInfo();
-    log.info(`${info.hostname} System:
+    log.info(`${info.hostname} system info:
  🖥️  ${info.distro} ${info.release} (${info.platform} ${info.arch})
  💾 RAM: ${info.memory} 
  📄 ${info.rcFile} (${info.shell})`);
@@ -19,13 +19,11 @@ export const ConsoleLib = {
     const dotsxState = DotsxInfoLib.getDotsxState();
 
     if (dotsxState.isInitialized) {
-    log.info(`DotsX (Initialized): 
- ${dotsxState.isBinInitialized ? '✅' : '❌'} Bin Initialized
- ${dotsxState.isOsInitialized ? '✅' : '❌'} OS Initialized
- ${dotsxState.isTerminalInitialized ? '✅' : '❌'} Terminal Initialized
- ${dotsxState.isIdeInitialized ? '✅' : '❌'} IDE Initialized`);
-  } else {
-    log.info('DotsX (Not Initialized)');
-  }
+      log.info(
+        `Configuration status: ${dotsxState.isBinInitialized ? '✅' : '❌'} Bin | ${dotsxState.isOsInitialized ? '✅' : '❌'} OS | ${dotsxState.isTerminalInitialized ? '✅' : '❌'} Terminal | ${dotsxState.isIdeInitialized ? '✅' : '❌'} IDE`,
+      );
+    } else {
+      log.error('DotsX (Not configured)');
+    }
   },
 };
