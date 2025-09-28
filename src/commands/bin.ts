@@ -22,7 +22,22 @@ export const binCommand = {
 
     if (!sourcePattern.test(content)) {
       FileLib.writeToEndOfFile(rcFile, `source ${DOTSX.BIN.ALIAS}`);
-      log.info(`✅ Source added to ${rcFile}`);
+      log.info(`Source added to ${rcFile}`);
+    }
+
+    const scriptInAliasFile = this.getScriptInFile();
+
+    for (const script of scriptInAliasFile) {
+      let count = 0;
+      if (!FileLib.isFile(script.path)) {
+        FileLib.writeToFileReplacingContent(DOTSX.BIN.ALIAS, '', `alias ${script.name}="${script.path}"`);
+        log.step(`${script.path} is not a file, cleaned from alias file`);
+        count++;
+      }
+
+      if (count > 0) {
+        log.info(`${count} scripts cleaned from alias file`);
+      }
     }
 
     const scriptFiles = this.readBinDirectory();
@@ -31,11 +46,6 @@ export const binCommand = {
       log.warn(`No shell scripts found, add some shell scripts to ${DOTSX.BIN.PATH}`);
       return;
     }
-
-    const scriptInAliasFile = this.getScriptInFile();
-
-    console.log('scriptInAliasFile', scriptInAliasFile);
-    
 
     const scriptsData = scriptFiles.map((script) => {
       const scriptName = FileLib.deleteFilenameExtension(script);
@@ -89,15 +99,17 @@ export const binCommand = {
       .sort();
   },
 
-  getScriptInFile(): string[] {
+  getScriptInFile(): { name: string; path: string }[] {
     const content = FileLib.readFile(DOTSX.BIN.ALIAS);
-    // Match lines like: alias name="path"
-    const matches = content.matchAll(/^alias\s+([a-zA-Z0-9_-]+)=["'][^"']*["']/gm);
-    const names: string[] = [];
+    const matches = content.matchAll(/^alias\s+([a-zA-Z0-9_-]+)=["']([^"']*)["']/gm);
+
+    const scripts: { name: string; path: string }[] = [];
     for (const match of matches) {
-      if (match[1]) names.push(match[1]);
+      if (match[1] && match[2]) {
+        scripts.push({ name: match[1], path: match[2] });
+      }
     }
-    return names;
+    return scripts;
   },
 
   checkAliasInFile(scriptName: string): boolean {

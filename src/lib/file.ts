@@ -122,8 +122,25 @@ export const FileLib = {
     return fs.readdirSync(path);
   },
 
+  writeToFile(path: string, content: string) {
+    if (!this.isFile(path)) return;
+    fs.writeFileSync(path, content);
+  },
+
   writeToEndOfFile(path: string, content: string) {
+    if (!this.isFile(path)) return;
     fs.appendFileSync(path, `${content}\n`);
+  },
+
+  writeToFileReplacingContent(path: string, newContent: string, contentToReplace: string) {
+    if (!this.isFile(path)) return;
+    try {
+      const fileContent = this.readFile(path);
+      const updatedContent = fileContent.replace(contentToReplace, newContent);
+      this.writeToFile(path, updatedContent);
+    } catch (error) {
+      log.error(`Error writing to file ${path}: ${error}`);
+    }
   },
 
   makeExecutable(path: string) {
