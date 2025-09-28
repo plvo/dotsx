@@ -1,22 +1,29 @@
-export interface SystemInfo {
-  os: string;
+export type Family = 'linux' | 'windows' | 'macos' | 'bsd' | 'unix' | 'unknown';
+
+export interface OsInfo {
+   platform: NodeJS.Platform;
+   family: Family;
+   distro?: string | null;
+   release?: string | null;
+ }
+
+export interface SystemInfo extends OsInfo {
+  arch: string;
   hostname: string;
   memory: string;
   shell: string;
   rcFile: string;
-  dotfilesPath: string;
 }
 
 export type DomainType = 'ide' | 'os' | 'terminal';
 
-export type OsType = 'debian' | 'macos';
-
 export interface Domain {
   name: string;
   type: DomainType;
-  availableOs: OsType[];
+  distro: string[] | null;
+  availableOs: Family[];
   packageManagers?: Record<string, PackageManagerConfig>;
-  symlinkPaths?: Record<OsType, string[]>;
+  symlinkPaths?: Partial<Record<Family, string[]>>;
   defaultContent?: string;
 }
 

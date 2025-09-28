@@ -1,6 +1,6 @@
+/** biome-ignore-all lint/style/noNonNullAssertion: <explanation> */
 import { describe, expect, test } from 'bun:test';
-import { cursorDomain } from '../../../src/domains/ide/cursor';
-import { vscodeDomain } from '../../../src/domains/ide/vscode';
+import { cursorDomain, vscodeDomain } from '../../../src/domains';
 
 describe('domains/ide', () => {
   const ideDomains = [vscodeDomain, cursorDomain];
@@ -12,23 +12,23 @@ describe('domains/ide', () => {
       }
     });
 
-    test('should support debian and macos', () => {
+    test('should support linux and macos', () => {
       for (const domain of ideDomains) {
-        expect(domain.availableOs).toEqual(['debian', 'macos']);
+        expect(domain.availableOs).toEqual(['linux', 'macos']);
       }
     });
 
     test('should have symlink paths defined for both OS types', () => {
       for (const domain of ideDomains) {
         expect(domain.symlinkPaths).toBeDefined();
-        expect(domain.symlinkPaths!.debian).toBeDefined();
-        expect(domain.symlinkPaths!.macos).toBeDefined();
+        expect(domain.symlinkPaths?.linux).toBeDefined();
+        expect(domain.symlinkPaths?.macos).toBeDefined();
 
-        expect(Array.isArray(domain.symlinkPaths!.debian)).toBe(true);
-        expect(Array.isArray(domain.symlinkPaths!.macos)).toBe(true);
+        expect(Array.isArray(domain.symlinkPaths?.linux)).toBe(true);
+        expect(Array.isArray(domain.symlinkPaths?.macos)).toBe(true);
 
-        expect(domain.symlinkPaths!.debian.length).toBeGreaterThan(0);
-        expect(domain.symlinkPaths!.macos.length).toBeGreaterThan(0);
+        expect(domain.symlinkPaths?.linux?.length).toBeGreaterThan(0);
+        expect(domain.symlinkPaths?.macos?.length).toBeGreaterThan(0);
       }
     });
 
@@ -41,8 +41,8 @@ describe('domains/ide', () => {
     test('should use home directory paths starting with ~/', () => {
       for (const domain of ideDomains) {
         const allPaths = [
-          ...domain.symlinkPaths!.debian,
-          ...domain.symlinkPaths!.macos
+          ...(domain.symlinkPaths?.linux ?? []),
+          ...(domain.symlinkPaths?.macos ?? [])
         ];
 
         for (const path of allPaths) {
@@ -53,8 +53,8 @@ describe('domains/ide', () => {
 
     test('should have multiple configuration files', () => {
       for (const domain of ideDomains) {
-        expect(domain.symlinkPaths!.debian.length).toBeGreaterThan(1);
-        expect(domain.symlinkPaths!.macos.length).toBeGreaterThan(1);
+        expect(domain.symlinkPaths?.linux?.length).toBeGreaterThan(1);
+        expect(domain.symlinkPaths?.macos?.length).toBeGreaterThan(1);
       }
     });
   });
@@ -65,16 +65,16 @@ describe('domains/ide', () => {
       expect(vscodeDomain.type).toBe('ide');
     });
 
-    test('should have correct debian paths', () => {
-      const debianPaths = vscodeDomain.symlinkPaths!.debian;
+    test('should have correct linux paths', () => {
+      const linuxPaths = vscodeDomain.symlinkPaths?.linux;
 
-      expect(debianPaths).toContain('~/.config/Code/User/settings.json');
-      expect(debianPaths).toContain('~/.config/Code/User/keybindings.json');
-      expect(debianPaths).toContain('~/.config/Code/User/snippets');
+      expect(linuxPaths).toContain('~/.config/Code/User/settings.json');
+      expect(linuxPaths).toContain('~/.config/Code/User/keybindings.json');
+      expect(linuxPaths).toContain('~/.config/Code/User/snippets');
     });
 
     test('should have correct macos paths', () => {
-      const macosPaths = vscodeDomain.symlinkPaths!.macos;
+      const macosPaths = vscodeDomain.symlinkPaths?.macos;
 
       expect(macosPaths).toContain('~/Library/Application Support/Code/User/snippets');
       expect(macosPaths).toContain('~/Library/Application Support/Code/User/keybindings.json');
@@ -82,27 +82,26 @@ describe('domains/ide', () => {
     });
 
     test('should have same number of files for both OS types', () => {
-      const debianCount = vscodeDomain.symlinkPaths!.debian.length;
-      const macosCount = vscodeDomain.symlinkPaths!.macos.length;
+      const linuxCount = vscodeDomain.symlinkPaths?.linux?.length;
 
-      expect(debianCount).toBe(macosCount);
-      expect(debianCount).toBe(3);
+      expect(linuxCount).toBe(vscodeDomain.symlinkPaths?.macos?.length ?? 0);
+      expect(linuxCount).toBe(3);
     });
 
     test('should include common configuration files', () => {
-      const debianPaths = vscodeDomain.symlinkPaths!.debian;
-      const macosPaths = vscodeDomain.symlinkPaths!.macos;
+      const linuxPaths = vscodeDomain.symlinkPaths?.linux ?? [];
+      const macosPaths = vscodeDomain.symlinkPaths?.macos ?? [];
 
       // Both should have settings.json
-      expect(debianPaths.some(p => p.includes('settings.json'))).toBe(true);
+      expect(linuxPaths.some(p => p.includes('settings.json'))).toBe(true);
       expect(macosPaths.some(p => p.includes('settings.json'))).toBe(true);
 
       // Both should have keybindings.json
-      expect(debianPaths.some(p => p.includes('keybindings.json'))).toBe(true);
+      expect(linuxPaths.some(p => p.includes('keybindings.json'))).toBe(true);
       expect(macosPaths.some(p => p.includes('keybindings.json'))).toBe(true);
 
       // Both should have snippets
-      expect(debianPaths.some(p => p.includes('snippets'))).toBe(true);
+      expect(linuxPaths.some(p => p.includes('snippets'))).toBe(true);
       expect(macosPaths.some(p => p.includes('snippets'))).toBe(true);
     });
   });
@@ -113,12 +112,12 @@ describe('domains/ide', () => {
       expect(cursorDomain.type).toBe('ide');
     });
 
-    test('should have correct debian paths', () => {
-      const debianPaths = cursorDomain.symlinkPaths!.debian;
+    test('should have correct linux paths', () => {
+      const linuxPaths = cursorDomain.symlinkPaths!.linux;
 
-      expect(debianPaths).toContain('~/.config/Cursor/User/settings.json');
-      expect(debianPaths).toContain('~/.config/Cursor/User/keybindings.json');
-      expect(debianPaths).toContain('~/.config/Cursor/User/snippets');
+      expect(linuxPaths).toContain('~/.config/Cursor/User/settings.json');
+      expect(linuxPaths).toContain('~/.config/Cursor/User/keybindings.json');
+      expect(linuxPaths).toContain('~/.config/Cursor/User/snippets');
     });
 
     test('should have correct macos paths', () => {
@@ -130,28 +129,25 @@ describe('domains/ide', () => {
     });
 
     test('should have same number of files for both OS types', () => {
-      const debianCount = cursorDomain.symlinkPaths!.debian.length;
-      const macosCount = cursorDomain.symlinkPaths!.macos.length;
+      const linuxCount = cursorDomain.symlinkPaths?.linux?.length ?? 0;
+      const macosCount = cursorDomain.symlinkPaths?.macos?.length ?? 0;
 
-      expect(debianCount).toBe(macosCount);
-      expect(debianCount).toBe(3);
+      expect(linuxCount).toBe(macosCount);
+      expect(linuxCount).toBe(3);
     });
 
     test('should include common configuration files', () => {
-      const debianPaths = cursorDomain.symlinkPaths!.debian;
-      const macosPaths = cursorDomain.symlinkPaths!.macos;
-
       // Both should have settings.json
-      expect(debianPaths.some(p => p.includes('settings.json'))).toBe(true);
-      expect(macosPaths.some(p => p.includes('settings.json'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.linux?.some(p => p.includes('settings.json'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.macos?.some(p => p.includes('settings.json'))).toBe(true);
 
       // Both should have keybindings.json
-      expect(debianPaths.some(p => p.includes('keybindings.json'))).toBe(true);
-      expect(macosPaths.some(p => p.includes('keybindings.json'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.linux?.some(p => p.includes('keybindings.json'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.macos?.some(p => p.includes('keybindings.json'))).toBe(true);
 
       // Both should have snippets
-      expect(debianPaths.some(p => p.includes('snippets'))).toBe(true);
-      expect(macosPaths.some(p => p.includes('snippets'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.linux?.some(p => p.includes('snippets'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.macos?.some(p => p.includes('snippets'))).toBe(true);
     });
   });
 
@@ -166,12 +162,12 @@ describe('domains/ide', () => {
     });
 
     test('should have different config directories', () => {
-      const vscodeDebianPath = vscodeDomain.symlinkPaths!.debian[0];
-      const cursorDebianPath = cursorDomain.symlinkPaths!.debian[0];
+      const vscodeLinuxPath = vscodeDomain.symlinkPaths?.linux?.[0];
+      const cursorLinuxPath = cursorDomain.symlinkPaths?.linux?.[0];
 
-      expect(vscodeDebianPath).toContain('Code');
-      expect(cursorDebianPath).toContain('Cursor');
-      expect(vscodeDebianPath).not.toEqual(cursorDebianPath);
+      expect(vscodeLinuxPath).toContain('Code');
+      expect(cursorLinuxPath).toContain('Cursor');
+      expect(vscodeLinuxPath).not.toEqual(cursorLinuxPath);
     });
 
     test('should follow similar path patterns', () => {
@@ -180,13 +176,12 @@ describe('domains/ide', () => {
       const macosPattern = /~\/Library\/Application Support\/(Code|Cursor)\/User\//;
 
       for (const domain of ideDomains) {
-        const debianPaths = domain.symlinkPaths!.debian;
-        const macosPaths = domain.symlinkPaths!.macos;
-
-        for (const path of debianPaths) {
+        const linuxPaths = domain.symlinkPaths?.linux ?? [];
+        for (const path of linuxPaths) {
           expect(path).toMatch(vscodePattern);
         }
 
+        const macosPaths = domain.symlinkPaths?.macos ?? [];
         for (const path of macosPaths) {
           expect(path).toMatch(macosPattern);
         }
@@ -198,8 +193,8 @@ describe('domains/ide', () => {
     test('should have valid JSON file extensions where appropriate', () => {
       for (const domain of ideDomains) {
         const allPaths = [
-          ...domain.symlinkPaths!.debian,
-          ...domain.symlinkPaths!.macos
+          ...domain.symlinkPaths?.linux ?? [],
+          ...domain.symlinkPaths?.macos ?? [],
         ];
 
         const jsonPaths = allPaths.filter(p => p.includes('.json'));
@@ -214,8 +209,8 @@ describe('domains/ide', () => {
     test('should not have empty paths', () => {
       for (const domain of ideDomains) {
         const allPaths = [
-          ...domain.symlinkPaths!.debian,
-          ...domain.symlinkPaths!.macos
+          ...domain.symlinkPaths?.linux ?? [],
+          ...domain.symlinkPaths?.macos ?? []
         ];
 
         for (const path of allPaths) {
@@ -228,11 +223,10 @@ describe('domains/ide', () => {
     test('should have consistent order of configuration files', () => {
       // Settings should come before keybindings, snippets last
       for (const domain of ideDomains) {
-        const debianPaths = domain.symlinkPaths!.debian;
 
-        const settingsIndex = debianPaths.findIndex(p => p.includes('settings.json'));
-        const keybindingsIndex = debianPaths.findIndex(p => p.includes('keybindings.json'));
-        const snippetsIndex = debianPaths.findIndex(p => p.includes('snippets'));
+        const settingsIndex = domain.symlinkPaths?.linux?.findIndex(p => p.includes('settings.json'));
+        const keybindingsIndex = domain.symlinkPaths?.linux?.findIndex(p => p.includes('keybindings.json'));
+        const snippetsIndex = domain.symlinkPaths?.linux?.findIndex(p => p.includes('snippets'));
 
         expect(settingsIndex).toBeGreaterThan(-1);
         expect(keybindingsIndex).toBeGreaterThan(-1);

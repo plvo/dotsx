@@ -1,85 +1,78 @@
 import { resolve } from 'node:path';
-import { multiselect, type Option, select } from '@clack/prompts';
-import { getDomainByName, getDomainsByType } from '@/domains';
+import { log, multiselect, type Option } from '@clack/prompts';
+import { getDomainByDistro, getDomainByName, getDomainsByType } from '@/domains';
 import { DOTSX, DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { SystemLib } from '@/lib/system';
-import type { Domain, OsType } from '@/types';
+import type { Domain, Family } from '@/types';
 
 export const initCommand = {
   async execute() {
     try {
-      const isInitialized = SystemLib.isInitialized();
-      console.log(isInitialized ? `✅ DotX initialized on ${DOTSX_PATH}` : '❌ DotX not initialized');
+      const osInfo = SystemLib.getOsInfo();
 
-      const os = await select({
-        message: 'What is your operating system?',
-        options: [{ value: 'debian', label: 'Debian' }],
-      });
+      log.info(`🖥️  Initializing on a ${osInfo.family} ${osInfo.distro} ${osInfo.release} system...`);
 
       const availableTerminalDomains = getDomainsByType('terminal');
       const terminals = await multiselect({
         message: 'What terminals do you want to initialize?',
+        required: false,
         options: availableTerminalDomains.map((domain) => ({
           value: domain.name,
           label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
-          hint: domain.symlinkPaths?.[SystemLib.getCurrentOsType()].join(', '),
+          hint: domain.symlinkPaths?.[osInfo.family]?.join(', '),
         })) satisfies Option<string>[],
       });
 
       const availableIdeDomains = getDomainsByType('ide');
       const ides = await multiselect({
         message: 'What IDEs do you want to initialize?',
+        required: false,
         options: availableIdeDomains.map((domain) => ({
           value: domain.name,
           label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
-          hint: domain.symlinkPaths?.[SystemLib.getCurrentOsType()].join(', '),
+          hint: domain.symlinkPaths?.[osInfo.family]?.join(', '),
         })) satisfies Option<string>[],
       });
 
-      // Initialize bin directory
-      if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
-        FileLib.createDirectory(DOTSX.BIN.PATH);
-        FileLib.createFile(DOTSX.BIN.ALIAS);
-        console.log(`✅ Bin directory created: ${DOTSX.BIN.PATH}`);
-      } else {
-        console.log(`✅ Bin directory already exists: ${DOTSX.BIN.PATH}`);
-      }
-
-      // Initialize OS domain (create package files)
-      if (typeof os === 'string') {
-        const osDomain = getDomainByName(os);
+      if (osInfo.distro) {
+        const osDomain = getDomainByDistro(osInfo.distro) || getDomainByName(osInfo.family);
         if (osDomain) {
           await this.initOs(osDomain);
         }
+      } else {
+        log.error(`No OS domain found for ${osInfo.family}`);
       }
 
-      // Initialize terminal domains
       if (Array.isArray(terminals)) {
-        const currentOs = SystemLib.getCurrentOsType();
-
         for (const terminalName of terminals) {
           const domain = getDomainByName(terminalName);
           if (domain) {
-            await this.initTerminal(domain, currentOs);
+            await this.initTerminal(domain, osInfo.family);
           }
         }
       }
 
       if (Array.isArray(ides)) {
-        const currentOs = SystemLib.getCurrentOsType();
-
         for (const ideName of ides) {
           const domain = getDomainByName(ideName);
           if (domain) {
-            await this.importIdeConfigs(domain, currentOs);
+            await this.importIdeConfigs(domain, osInfo.family);
           }
         }
       }
 
-      console.log(`\n🎉 Initialized in: ${DOTSX_PATH}`);
+      if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
+        FileLib.createDirectory(DOTSX.BIN.PATH);
+        FileLib.createFile(DOTSX.BIN.ALIAS);
+        log.success(`Bin directory created: ${DOTSX.BIN.PATH}`);
+      } else {
+        log.success(`Bin directory already exists: ${DOTSX.BIN.PATH}`);
+      }
+
+      log.success(`🎉 Initialized in: ${DOTSX_PATH}`);
     } catch (error) {
-      console.error(`❌ Error during initialization: ${String(error)}`);
+      log.error(`Error during initialization: ${String(error)}`);
     }
   },
 
@@ -90,36 +83,40 @@ export const initCommand = {
 
   async initOs(domain: Domain) {
     if (!domain.packageManagers) {
-      console.log(`❌ No package managers defined for ${domain.name}`);
+      log.error(`No package managers defined for ${domain.name}`);
       return;
     }
 
-    console.log(`\n📦 Initializing ${domain.name} package management...`);
+    log.info(`📦 Initializing ${domain.name} package management...`);
+    const created: string[] = [];
 
-    // Create OS directory
     const osDirPath = resolve(DOTSX.OS.PATH, domain.name);
     FileLib.createDirectory(osDirPath);
 
-    // Create package files for each package manager
     for (const config of Object.values(domain.packageManagers)) {
       const { configPath, defaultContent } = config;
 
       if (!FileLib.isPathExists(configPath)) {
         FileLib.createFile(configPath, defaultContent);
-        console.log(`✅ Created: ${FileLib.getDisplayPath(configPath)}`);
+        created.push(FileLib.getDisplayPath(configPath));
       } else {
-        console.log(`✅ Already exists: ${FileLib.getDisplayPath(configPath)}`);
+        log.warn(`Already exists: ${FileLib.getDisplayPath(configPath)}`);
       }
     }
+
+    created.length > 0 && log.success(`Created:\n${created.join('\n')}`);
   },
 
-  async initTerminal(domain: Domain, currentOs: OsType) {
+  async initTerminal(domain: Domain, currentOs: Family) {
     if (!domain.symlinkPaths?.[currentOs]) {
-      console.log(`❌ No symlink paths for ${domain.name} on ${currentOs}`);
+      log.error(`No symlink paths for ${domain.name} on ${currentOs}`);
       return;
     }
 
-    console.log(`\n🖥️ Initializing ${domain.name} terminal...`);
+    log.info(`🖥️  Initializing ${domain.name} terminal...`);
+
+    const imported: { systemPath: string; dotsxPath: string }[] = [];
+    const notFound: string[] = [];
 
     for (const symlinkPath of domain.symlinkPaths[currentOs]) {
       const systemPath = FileLib.expandPath(symlinkPath);
@@ -128,19 +125,26 @@ export const initCommand = {
 
       if (FileLib.isPathExists(systemPath)) {
         FileLib.safeSymlink(systemPath, dotsxPath);
+        imported.push({ systemPath: FileLib.getDisplayPath(systemPath), dotsxPath: FileLib.getDisplayPath(dotsxPath) });
       } else {
-        console.log(`⚠️ File not found: ${FileLib.getDisplayPath(systemPath)} (ignoring)`);
+        notFound.push(FileLib.getDisplayPath(systemPath));
       }
     }
+
+    imported.length > 0 && log.success(`Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`);
+    notFound.length > 0 && log.warning(`Ignored because not found:\n${notFound.join('\n')}`);
   },
 
-  async importIdeConfigs(domain: Domain, currentOs: OsType) {
+  async importIdeConfigs(domain: Domain, currentOs: Family) {
     if (!domain.symlinkPaths?.[currentOs]) {
-      console.log(`❌ No symlink paths defined for ${domain.name} on ${currentOs}`);
+      log.error(`No symlink paths defined for ${domain.name} on ${currentOs}`);
       return;
     }
 
-    console.log(`\n📁 Importing ${domain.name} configurations...`);
+    log.info(`📁 Importing ${domain.name} configurations...`);
+
+    const imported: { systemPath: string; dotsxPath: string }[] = [];
+    const notFound: string[] = [];
 
     for (const symlinkPath of domain.symlinkPaths[currentOs]) {
       const systemPath = FileLib.expandPath(symlinkPath);
@@ -150,10 +154,13 @@ export const initCommand = {
 
         FileLib.safeSymlink(systemPath, dotsxPath);
 
-        console.log(`✅ Imported: ${FileLib.getDisplayPath(systemPath)}`);
+        imported.push({ systemPath: FileLib.getDisplayPath(systemPath), dotsxPath: FileLib.getDisplayPath(dotsxPath) });
       } else {
-        console.log(`⚠️ File not found: ${FileLib.getDisplayPath(systemPath)} (ignoring)`);
+        notFound.push(FileLib.getDisplayPath(systemPath));
       }
     }
+
+    imported.length > 0 && log.success(`Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`);
+    notFound.length > 0 && log.warning(`Ignored because not found:\n${notFound.join('\n')}`);
   },
 };

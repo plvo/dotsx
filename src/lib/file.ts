@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { log } from '@clack/prompts';
 
 export const FileLib = {
   isPathExists(path: string) {
@@ -60,7 +61,7 @@ export const FileLib = {
       }
       fs.copyFileSync(src, dest);
     } catch (error) {
-      console.error(`❌ Error copying file: ${error}`);
+      log.error(` Error copying file: ${error}`);
     }
   },
 
@@ -81,7 +82,7 @@ export const FileLib = {
         try {
           this.copyFile(srcPath, destPath);
         } catch (err) {
-          console.error(`❌ Error copying file ${item}: ${err}`);
+          log.error(` Error copying file ${item}: ${err}`);
         }
       }
     }
@@ -111,7 +112,7 @@ export const FileLib = {
         .map((line) => line.trim())
         .filter((line) => line && !line.startsWith('#'));
     } catch (error) {
-      console.error(`❌ Error reading ${path}: ${error}`);
+      log.error(` Error reading ${path}: ${error}`);
       return [];
     }
   },
@@ -121,8 +122,25 @@ export const FileLib = {
     return fs.readdirSync(path);
   },
 
+  writeToFile(path: string, content: string) {
+    if (!this.isFile(path)) return;
+    fs.writeFileSync(path, content);
+  },
+
   writeToEndOfFile(path: string, content: string) {
+    if (!this.isFile(path)) return;
     fs.appendFileSync(path, `${content}\n`);
+  },
+
+  writeToFileReplacingContent(path: string, newContent: string, contentToReplace: string) {
+    if (!this.isFile(path)) return;
+    try {
+      const fileContent = this.readFile(path);
+      const updatedContent = fileContent.replace(contentToReplace, newContent);
+      this.writeToFile(path, updatedContent);
+    } catch (error) {
+      log.error(`Error writing to file ${path}: ${error}`);
+    }
   },
 
   makeExecutable(path: string) {
@@ -171,8 +189,6 @@ export const FileLib = {
     } else if (this.isFile(src)) {
       this.copyFile(src, dest);
     }
-
-    console.log(`💾 Backup created: ${this.getDisplayPath(dest)}`);
   },
 
   /**
@@ -195,6 +211,5 @@ export const FileLib = {
     }
 
     fs.symlinkSync(src, dest);
-    console.log(`🔗 Symlink created: ${this.getDisplayPath(src)} <-> ${this.getDisplayPath(dest)}`);
   },
 };

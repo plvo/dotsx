@@ -1,36 +1,32 @@
 import { execSync } from 'node:child_process';
-import { confirm, multiselect, select } from '@clack/prompts';
-import { getDomainsByType } from '@/domains';
+import { log, multiselect, select } from '@clack/prompts';
+import { getDomainByDistro, getDomainByName } from '@/domains';
 import { ConsoleLib } from '@/lib/console';
 import { FileLib } from '@/lib/file';
+import { SystemLib } from '@/lib/system';
 import type { Domain, PackageManagerConfig } from '@/types';
 
 export const packageCommand = {
   async execute() {
-    const osDomains = getDomainsByType('os').filter((domain) => domain.packageManagers);
+    const osInfo = SystemLib.getOsInfo();
 
-    if (osDomains.length === 0) {
-      console.log('ℹ️ No OS domains with package managers found');
-      return;
-    }
-
-    console.log(`Available OS: ${osDomains.map((d) => d.name).join(', ')}`);
-
-    const selectedDomain = await select({
-      message: 'Which OS do you want to use?',
-      options: osDomains.map((domain) => ({
-        value: domain,
-        label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
-      })),
-    });
-
-    if (selectedDomain && typeof selectedDomain === 'object' && selectedDomain.packageManagers) {
-      await this.handleDomain(selectedDomain);
+    if (osInfo.distro) {
+      const domain = getDomainByDistro(osInfo.distro) || getDomainByName(osInfo.family);
+      if (domain) {
+        await this.handleDomain(domain);
+      } else {
+        log.error(`No domain found for ${osInfo.distro}`);
+        return;
+      }
     }
   },
 
   async handleDomain(domain: Domain) {
-    if (!domain.packageManagers) return;
+    if (!domain.packageManagers) {
+      log.error(`No package managers found for ${domain.name}`);
+      return;
+    }
+
     const packageManagers = domain.packageManagers;
 
     const availableManagers = Object.keys(packageManagers);
@@ -44,95 +40,83 @@ export const packageCommand = {
     });
 
     if (selectedManager && typeof selectedManager === 'string' && packageManagers[selectedManager]) {
-      await this.handlePackageManager(packageManagers[selectedManager]);
+      const config = packageManagers[selectedManager];
+
+      const packages = FileLib.readFileAsArray(config.configPath);
+
+      if (packages.length === 0) {
+        log.warn(`No packages found in ${FileLib.getDisplayPath(config.configPath)}`);
+        return;
+      }
+
+      const { installed, notInstalled } = this.handleStatus(packages, config);
+
+      const action = await select({
+        message: 'What do you want to do?',
+        options: [
+          ...(notInstalled.length > 0 ? [{ value: 'install', label: '📦 Install packages' }] : []),
+          ...(installed.length > 0 ? [{ value: 'remove', label: '🗑️ Remove packages' }] : []),
+        ],
+      });
+
+      if (action === 'install') await this.handleInstall(notInstalled, config);
+      else if (action === 'remove') await this.handleRemove(installed, config);
     }
-  },
-
-  async handlePackageManager(config: PackageManagerConfig) {
-    const packages = FileLib.readFileAsArray(config.configPath);
-
-    const { installed, notInstalled } = this.handleStatus(packages, config);
-
-    if (packages.length === 0) {
-      console.log(`ℹ️ No packages found in ${FileLib.getDisplayPath(config.configPath)}`);
-      return;
-    }
-
-    const action = await select({
-      message: 'What do you want to do?',
-      options: [
-        { value: 'install', label: '📦 Install packages' },
-        { value: 'remove', label: '🗑️ Remove packages' },
-      ],
-    });
-
-    if (action === 'install') await this.handleInstall(notInstalled, config);
-    else if (action === 'remove') await this.handleRemove(installed, config);
   },
 
   async handleInstall(notInstalled: string[], config: PackageManagerConfig) {
     if (notInstalled.length === 0) {
-      console.log('✅ All packages are already installed');
+      log.success('All packages are already installed');
       return;
     }
 
-    const proceed = await confirm({
-      message: `Install ${notInstalled.length} packages?`,
+    const selectedPackages = await multiselect({
+      message: 'Which packages do you want to install?',
+      options: notInstalled.map((pkg) => ({ value: pkg, label: pkg })),
+      initialValues: notInstalled,
     });
 
-    if (!proceed) {
-      console.log('❌ Installation cancelled');
+    if (!Array.isArray(selectedPackages) || selectedPackages.length === 0) {
+      log.error('No packages selected');
       return;
     }
 
-    console.log('\n🔄 Installing packages...');
-    for (const pkg of notInstalled) {
+    log.info('Installing packages...');
+    for (const pkg of selectedPackages) {
       try {
-        console.log(`📦 Installing ${pkg}...`);
+        log.info(`Installing ${pkg}...`);
         execSync(`${config.install.replace('%s', pkg)}`, { stdio: 'pipe' });
-        console.log(`✅ ${pkg}`);
+        log.success(`${pkg} installed`);
       } catch (error) {
-        console.log(`❌ ${pkg}: ${error}`);
+        log.error(`${pkg}: ${error}`);
       }
     }
   },
 
   async handleRemove(installed: string[], config: PackageManagerConfig) {
     if (installed.length === 0) {
-      console.log('ℹ️ No packages installed to remove');
+      log.warn('No packages installed to remove');
       return;
     }
 
     const selectedPackages = await multiselect({
       message: 'Which packages do you want to remove?',
-      options: installed.map((pkg) => ({
-        value: pkg,
-        label: pkg,
-      })),
+      options: installed.map((pkg) => ({ value: pkg, label: pkg })),
     });
 
     if (!Array.isArray(selectedPackages) || selectedPackages.length === 0) {
-      console.log('❌ No packages selected');
+      log.error('No packages selected');
       return;
     }
 
-    const proceed = await confirm({
-      message: `Remove ${selectedPackages.length} packages?`,
-    });
-
-    if (!proceed) {
-      console.log('❌ Removal cancelled');
-      return;
-    }
-
-    console.log('\n🔄 Removing packages...');
+    log.info('Removing packages...');
     for (const pkg of selectedPackages) {
       try {
-        console.log(`📦 Removing ${pkg}...`);
+        log.info(`Removing ${pkg}...`);
         execSync(`${config.remove.replace('%s', pkg)}`, { stdio: 'pipe' });
-        console.log(`✅ ${pkg}`);
+        log.success(`${pkg} removed`);
       } catch (error) {
-        console.log(`❌ ${pkg}: ${error}`);
+        log.error(`${pkg}: ${error}`);
       }
     }
   },
