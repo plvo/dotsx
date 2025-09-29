@@ -2,6 +2,8 @@
 
 import { intro, select } from '@clack/prompts';
 import { binCommand } from './commands/bin';
+import { gitCommand } from './commands/git';
+import { gitInitCommand } from './commands/git-init';
 import { initCommand } from './commands/init';
 import { linkCommand } from './commands/link';
 import { packageCommand } from './commands/package';
@@ -28,7 +30,7 @@ async function main() {
   intro('🚀 DotsX CLI');
 
   const osInfo = SystemLib.getOsInfo();
-  ConsoleLib.displayInfo();
+  await ConsoleLib.displayInfo();
 
   const isInitialized = DotsxInfoLib.isInitialized();
 
@@ -51,12 +53,15 @@ async function main() {
 
     if (action === 'scratch') {
       await initCommand.execute();
+    } else if (action === 'git') {
+      await gitInitCommand.execute();
     }
   } else {
     const action = await select({
       message: 'Welcome!',
       options: [
         { value: 'link', label: '📋 Symlinks', hint: 'Create symlinks for files and directories' },
+        { value: 'git', label: '🔧 Git', hint: 'Manage Git repository and synchronization' },
         {
           value: 'package',
           label: `📦 ${osInfo.distro || osInfo.family} packages`,
@@ -78,6 +83,8 @@ async function main() {
       await terminalCommand.execute();
     } else if (action === 'ide') {
       await ideCommand.execute();
+    } else if (action === 'git') {
+      await gitCommand.execute();
     }
   }
 }

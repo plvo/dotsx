@@ -56,3 +56,28 @@ export interface ConfigStatusInfo {
   totalFiles: number;
   importedFiles: number;
 }
+
+export interface GitInfo {
+  isRepository: boolean;
+  repoName?: string;
+  remoteName?: string;
+  remoteUrl?: string;
+  currentBranch?: string;
+  lastCommit?: {
+    hash: string;
+    message: string;
+    author: string;
+    date: string;
+  };
+  status?: {
+    ahead: number;
+    behind: number;
+    hasUncommittedChanges: boolean;
+  };
+}
+
+export interface GitValidationResult {
+  isValid: boolean;
+  missingDirectories: string[];
+  message: string;
+}
