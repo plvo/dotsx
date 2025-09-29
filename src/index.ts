@@ -7,6 +7,7 @@ import { linkCommand } from './commands/link';
 import { packageCommand } from './commands/package';
 import { ConsoleLib } from './lib/console';
 import { DotsxInfoLib, SystemLib } from './lib/system';
+import { ideCommand } from './commands/ide';
 
 async function main() {
   intro('🚀 DotsX CLI');
@@ -47,6 +48,7 @@ async function main() {
         },
         { value: 'link', label: '📋 Symlink', hint: 'Create symlinks for files and directories' },
         { value: 'bin', label: '⚡ Manage bin scripts', hint: 'Manage bin scripts and aliases' },
+        { value: 'ide', label: '💻 Manage IDE configs', hint: 'Manage your IDEs settings' },
       ],
     });
 
@@ -56,6 +58,8 @@ async function main() {
       await linkCommand.execute();
     } else if (action === 'bin') {
       await binCommand.execute();
+    } else if (action === 'ide') {
+      await ideCommand.execute();
     }
   }
 }

@@ -21,7 +21,6 @@ export interface Domain {
   name: string;
   type: DomainType;
   distro: string[] | null;
-  availableOs: Family[];
   packageManagers?: Record<string, PackageManagerConfig>;
   symlinkPaths?: Partial<Record<Family, string[]>>;
   defaultContent?: string;

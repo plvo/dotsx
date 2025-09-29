@@ -4,7 +4,6 @@ export const cursorDomain: Domain = {
   name: 'cursor',
   type: 'ide',
   distro: null,
-  availableOs: ['linux', 'macos'],
   symlinkPaths: {
     linux: [
       '~/.config/Cursor/User/settings.json',
@@ -23,7 +22,6 @@ export const vscodeDomain: Domain = {
   name: 'vscode',
   type: 'ide',
   distro: null,
-  availableOs: ['linux', 'macos'],
   symlinkPaths: {
     linux: [
       '~/.config/Code/User/settings.json',
