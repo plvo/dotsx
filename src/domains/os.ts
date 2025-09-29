@@ -13,7 +13,6 @@ export const debianDomain: Domain = {
   name: 'debian',
   distro: ['debian', 'ubuntu'],
   type: 'os',
-  availableOs: ['linux'],
   packageManagers: {
     apt: {
       configPath: DOTSX.OS.DEBIAN.APT,
@@ -43,7 +42,6 @@ export const fedoraDomain: Domain = {
   name: 'fedora',
   distro: ['fedora'],
   type: 'os',
-  availableOs: ['linux'],
   packageManagers: {
     dnf: {
       configPath: DOTSX.OS.FEDORA.DNF,
@@ -59,7 +57,6 @@ export const archDomain: Domain = {
   name: 'arch',
   distro: ['arch'],
   type: 'os',
-  availableOs: ['linux'],
   packageManagers: {
     pacman: {
       configPath: DOTSX.OS.ARCH.PACMAN,
@@ -82,7 +79,6 @@ export const alpineDomain: Domain = {
   name: 'alpine',
   distro: ['alpine'],
   type: 'os',
-  availableOs: ['linux'],
   packageManagers: {
     apk: {
       configPath: DOTSX.OS.ALPINE.APK,
@@ -98,7 +94,6 @@ export const suseDomain: Domain = {
   name: 'suse',
   distro: ['suse'],
   type: 'os',
-  availableOs: ['linux'],
   packageManagers: {
     zypper: {
       configPath: DOTSX.OS.SUSE.ZYPPER,
@@ -114,7 +109,6 @@ export const macosDomain: Domain = {
   name: 'macos',
   distro: null,
   type: 'os',
-  availableOs: ['macos'],
   packageManagers: {
     brew: {
       configPath: DOTSX.OS.MACOS.BREW,

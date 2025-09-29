@@ -3,7 +3,7 @@ import { log, multiselect, type Option } from '@clack/prompts';
 import { getDomainByDistro, getDomainByName, getDomainsByType } from '@/domains';
 import { DOTSX, DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
-import { SystemLib } from '@/lib/system';
+import { DotsxInfoLib, SystemLib } from '@/lib/system';
 import type { Domain, Family } from '@/types';
 
 export const initCommand = {
@@ -48,7 +48,7 @@ export const initCommand = {
         for (const terminalName of terminals) {
           const domain = getDomainByName(terminalName);
           if (domain) {
-            await this.initTerminal(domain, osInfo.family);
+            await this.initDomainConfig(domain, osInfo.family, DOTSX.TERMINAL.PATH);
           }
         }
       }
@@ -57,7 +57,7 @@ export const initCommand = {
         for (const ideName of ides) {
           const domain = getDomainByName(ideName);
           if (domain) {
-            await this.importIdeConfigs(domain, osInfo.family);
+            await this.initDomainConfig(domain, osInfo.family, DOTSX.IDE.PATH);
           }
         }
       }
@@ -74,11 +74,6 @@ export const initCommand = {
     } catch (error) {
       log.error(`Error during initialization: ${String(error)}`);
     }
-  },
-
-  getDotfilesPath(domain: Domain, symlinkPath: string): string {
-    const fileName = symlinkPath.split('/').pop() || '';
-    return resolve(DOTSX.IDE.PATH, domain.name, fileName);
   },
 
   async initOs(domain: Domain) {
@@ -107,21 +102,20 @@ export const initCommand = {
     created.length > 0 && log.success(`Created:\n${created.join('\n')}`);
   },
 
-  async initTerminal(domain: Domain, currentOs: Family) {
+  async initDomainConfig(domain: Domain, currentOs: Family, basePath: string) {
     if (!domain.symlinkPaths?.[currentOs]) {
       log.error(`No symlink paths for ${domain.name} on ${currentOs}`);
       return;
     }
 
-    log.info(`🖥️  Initializing ${domain.name} terminal...`);
+    log.info(`📁 Initializing ${domain.name} configurations...`);
 
     const imported: { systemPath: string; dotsxPath: string }[] = [];
     const notFound: string[] = [];
 
     for (const symlinkPath of domain.symlinkPaths[currentOs]) {
       const systemPath = FileLib.expandPath(symlinkPath);
-      const fileName = symlinkPath.split('/').pop() || '';
-      const dotsxPath = resolve(DOTSX.TERMINAL.PATH, fileName);
+      const dotsxPath = DotsxInfoLib.getDotsxPath(domain, symlinkPath, basePath);
 
       if (FileLib.isPathExists(systemPath)) {
         FileLib.safeSymlink(systemPath, dotsxPath);
@@ -131,36 +125,10 @@ export const initCommand = {
       }
     }
 
-    imported.length > 0 && log.success(`Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`);
-    notFound.length > 0 && log.warning(`Ignored because not found:\n${notFound.join('\n')}`);
-  },
-
-  async importIdeConfigs(domain: Domain, currentOs: Family) {
-    if (!domain.symlinkPaths?.[currentOs]) {
-      log.error(`No symlink paths defined for ${domain.name} on ${currentOs}`);
-      return;
-    }
-
-    log.info(`📁 Importing ${domain.name} configurations...`);
-
-    const imported: { systemPath: string; dotsxPath: string }[] = [];
-    const notFound: string[] = [];
-
-    for (const symlinkPath of domain.symlinkPaths[currentOs]) {
-      const systemPath = FileLib.expandPath(symlinkPath);
-
-      if (FileLib.isPathExists(systemPath)) {
-        const dotsxPath = this.getDotfilesPath(domain, symlinkPath);
-
-        FileLib.safeSymlink(systemPath, dotsxPath);
-
-        imported.push({ systemPath: FileLib.getDisplayPath(systemPath), dotsxPath: FileLib.getDisplayPath(dotsxPath) });
-      } else {
-        notFound.push(FileLib.getDisplayPath(systemPath));
-      }
-    }
-
-    imported.length > 0 && log.success(`Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`);
+    imported.length > 0 &&
+      log.success(
+        `Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`,
+      );
     notFound.length > 0 && log.warning(`Ignored because not found:\n${notFound.join('\n')}`);
   },
 };

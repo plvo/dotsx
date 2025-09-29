@@ -566,24 +566,24 @@ describe('FileLib', () => {
       const content = 'test content';
 
       await writeFile(sourceFile, content);
-      
+
       FileLib.backupPath(sourceFile);
 
       const backupFiles = FileLib.readDirectory(testDir).filter((f) => /\.dotsx\.\d{17}\.backup$/.test(f));
       expect(backupFiles.length).toBe(1);
-      
+
       const backupFileName = backupFiles[0] as string;
       expect(FileLib.readFile(join(testDir, backupFileName))).toBe(content);
-      
+
       // Verify timestamp format (17 digits: YYYYMMDDHHMMSSMMM)
       const timestampMatch = backupFileName.match(/\.dotsx\.(\d{17})\.backup$/);
       expect(timestampMatch).toBeTruthy();
-      
+
       if (timestampMatch) {
         const timestamp = timestampMatch[1] as string;
         expect(timestamp).toBeDefined();
         expect(timestamp).toHaveLength(17);
-        
+
         // Verify year is current
         const year = Number.parseInt(timestamp.substring(0, 4), 10);
         expect(year).toBeGreaterThanOrEqual(new Date().getFullYear());
@@ -608,10 +608,10 @@ describe('FileLib', () => {
 
       const backupDirs = FileLib.readDirectory(testDir).filter((f) => /\.dotsx\.\d{17}\.backup$/.test(f));
       expect(backupDirs.length).toBe(1);
-      
+
       const backupDirName = backupDirs[0] as string;
       const backupPath = join(testDir, backupDirName);
-      
+
       expect(FileLib.isDirectory(backupPath)).toBe(true);
       expect(FileLib.isFile(join(backupPath, 'file1.txt'))).toBe(true);
       expect(FileLib.isDirectory(join(backupPath, 'nested'))).toBe(true);
@@ -637,11 +637,11 @@ describe('FileLib', () => {
 
       // Verify symlink was removed
       expect(FileLib.isPathExists(linkFile)).toBe(false);
-      
+
       // Verify source file was backed up (recursive backup)
       const backupFiles = FileLib.readDirectory(testDir).filter((f) => /\.dotsx\.\d{17}\.backup$/.test(f));
       expect(backupFiles.length).toBe(1);
-      
+
       const backupFileName = backupFiles[0] as string;
       expect(FileLib.readFile(join(testDir, backupFileName))).toBe(content);
 
@@ -662,11 +662,11 @@ describe('FileLib', () => {
 
       // Verify symlink was removed
       expect(FileLib.isPathExists(linkDir)).toBe(false);
-      
+
       // Verify source directory was backed up recursively
       const backupDirs = FileLib.readDirectory(testDir).filter((f) => /\.dotsx\.\d{17}\.backup$/.test(f));
       expect(backupDirs.length).toBe(1);
-      
+
       const backupDirName = backupDirs[0] as string;
       expect(FileLib.isDirectory(join(testDir, backupDirName))).toBe(true);
       expect(FileLib.isFile(join(testDir, backupDirName, 'file1.txt'))).toBe(true);
@@ -681,7 +681,7 @@ describe('FileLib', () => {
 
       // Should not throw error
       expect(() => FileLib.backupPath(nonExistentFile)).not.toThrow();
-      
+
       // No backup should be created
       const backupFiles = FileLib.readDirectory(testDir).filter((f) => /\.dotsx\.\d{17}\.backup$/.test(f));
       expect(backupFiles.length).toBe(0);
@@ -717,11 +717,11 @@ describe('FileLib', () => {
       // Verify symlink was created correctly
       expect(FileLib.isSymLink(existingFile)).toBe(true);
       expect(FileLib.isSymLinkContentCorrect(sourceFile, existingFile)).toBe(true);
-      
+
       // Verify original content was backed up
       const backupFiles = FileLib.readDirectory(testDir).filter((f) => /\.dotsx\.\d{17}\.backup$/.test(f));
       expect(backupFiles.length).toBe(1);
-      
+
       const backupContent = FileLib.readFile(join(testDir, backupFiles[0] as string));
       expect(backupContent).toBe(existingContent);
     });
@@ -729,11 +729,11 @@ describe('FileLib', () => {
     test('should backup existing directory and create symlink', async () => {
       const sourceDir = join(testDir, 'source-dir');
       const existingDir = join(testDir, 'existing-dir');
-      
+
       // Create source directory
       FileLib.createDirectory(sourceDir);
       await writeFile(join(sourceDir, 'source.txt'), 'source content');
-      
+
       // Create existing directory to replace
       FileLib.createDirectory(existingDir);
       await writeFile(join(existingDir, 'existing.txt'), 'existing content');
@@ -744,11 +744,11 @@ describe('FileLib', () => {
       // Verify symlink was created correctly
       expect(FileLib.isSymLink(existingDir)).toBe(true);
       expect(FileLib.isSymLinkContentCorrect(sourceDir, existingDir)).toBe(true);
-      
+
       // Verify backup directory exists with all original content
       const backupDirs = FileLib.readDirectory(testDir).filter((f) => /\.dotsx\.\d{17}\.backup$/.test(f));
       expect(backupDirs.length).toBe(1);
-      
+
       const backupPath = join(testDir, backupDirs[0] as string);
       expect(FileLib.isDirectory(backupPath)).toBe(true);
       expect(FileLib.isFile(join(backupPath, 'existing.txt'))).toBe(true);
@@ -761,7 +761,7 @@ describe('FileLib', () => {
       const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
       const sourceFile = join(testDir, 'source.txt');
       const linkFile = join(testDir, 'nested', 'very', 'deep', 'link.txt');
-      
+
       await writeFile(sourceFile, 'content');
 
       FileLib.safeSymlink(sourceFile, linkFile);
@@ -770,7 +770,7 @@ describe('FileLib', () => {
       expect(FileLib.isDirectory(join(testDir, 'nested'))).toBe(true);
       expect(FileLib.isDirectory(join(testDir, 'nested', 'very'))).toBe(true);
       expect(FileLib.isDirectory(join(testDir, 'nested', 'very', 'deep'))).toBe(true);
-      
+
       // Verify symlink was created
       expect(FileLib.isSymLink(linkFile)).toBe(true);
       expect(FileLib.isSymLinkContentCorrect(sourceFile, linkFile)).toBe(true);
@@ -783,14 +783,14 @@ describe('FileLib', () => {
       const sourceFile1 = join(testDir, 'source1.txt');
       const sourceFile2 = join(testDir, 'source2.txt');
       const linkFile = join(testDir, 'link.txt');
-      
+
       await writeFile(sourceFile1, 'content1');
       await writeFile(sourceFile2, 'content2');
-      
+
       // Create first symlink
       FileLib.safeSymlink(sourceFile1, linkFile);
       expect(FileLib.isSymLinkContentCorrect(sourceFile1, linkFile)).toBe(true);
-      
+
       // Replace with new symlink
       FileLib.safeSymlink(sourceFile2, linkFile);
       expect(FileLib.isSymLinkContentCorrect(sourceFile2, linkFile)).toBe(true);
@@ -816,7 +816,7 @@ describe('FileLib', () => {
     test('should handle symlink creation errors', async () => {
       const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
       const consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
-      
+
       // Mock fs.symlinkSync to throw an error
       const symlinkSyncSpy = spyOn(require('node:fs'), 'symlinkSync').mockImplementation(() => {
         throw new Error('Permission denied');
@@ -824,7 +824,7 @@ describe('FileLib', () => {
 
       const sourceFile = join(testDir, 'source.txt');
       const linkFile = join(testDir, 'link.txt');
-      
+
       await writeFile(sourceFile, 'content');
 
       expect(() => FileLib.safeSymlink(sourceFile, linkFile)).toThrow('Permission denied');

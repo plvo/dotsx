@@ -6,7 +6,6 @@ import { join } from 'node:path';
  * Creates sample configurations, dotfiles, and system files for testing
  */
 export class TestFixtures {
-
   /**
    * Create sample system configuration files that would typically exist on a user's system
    */
@@ -19,20 +18,28 @@ export class TestFixtures {
 
     await writeFile(
       join(vscodeDir, 'settings.json'),
-      JSON.stringify({
-        "editor.fontSize": 14,
-        "workbench.colorTheme": "Dark+"
-      }, null, 2)
+      JSON.stringify(
+        {
+          'editor.fontSize': 14,
+          'workbench.colorTheme': 'Dark+',
+        },
+        null,
+        2,
+      ),
     );
 
     await writeFile(
       join(vscodeDir, 'keybindings.json'),
-      JSON.stringify([
-        {
-          "key": "ctrl+shift+p",
-          "command": "workbench.action.showCommands"
-        }
-      ], null, 2)
+      JSON.stringify(
+        [
+          {
+            key: 'ctrl+shift+p',
+            command: 'workbench.action.showCommands',
+          },
+        ],
+        null,
+        2,
+      ),
     );
 
     // Create sample terminal configurations
@@ -45,7 +52,7 @@ alias grep='grep --color=auto'
 
 # Custom prompt
 PS1="%F{cyan}%n@%m%f:%F{blue}%~%f$ "
-`
+`,
     );
 
     await writeFile(
@@ -57,7 +64,7 @@ alias grep='grep --color=auto'
 
 # Custom prompt
 PS1='\\u@\\h:\\w\\$ '
-`
+`,
     );
 
     await writeFile(
@@ -73,7 +80,7 @@ bind -n M-Left select-pane -L
 bind -n M-Right select-pane -R
 bind -n M-Up select-pane -U
 bind -n M-Down select-pane -D
-`
+`,
     );
   }
 
@@ -89,7 +96,7 @@ bind -n M-Down select-pane -D
       `#!/bin/bash
 echo "Hello from my-script!"
 echo "Args: $@"
-`
+`,
     );
 
     // Create sample Python script
@@ -99,7 +106,7 @@ echo "Args: $@"
 import sys
 print("Hello from Python tool!")
 print(f"Args: {sys.argv[1:]}")
-`
+`,
     );
 
     // Create sample Node.js script
@@ -108,7 +115,7 @@ print(f"Args: {sys.argv[1:]}")
       `#!/usr/bin/env node
 console.log("Hello from Node.js tool!");
 console.log("Args:", process.argv.slice(2));
-`
+`,
     );
   }
 
@@ -129,7 +136,7 @@ vim
 nodejs
 python3
 build-essential
-`
+`,
     );
 
     await writeFile(
@@ -139,7 +146,7 @@ build-essential
 code
 discord
 spotify
-`
+`,
     );
   }
 
@@ -152,7 +159,7 @@ spotify
       ide: join(dotsxPath, 'ide'),
       os: join(dotsxPath, 'os'),
       terminal: join(dotsxPath, 'terminal'),
-      symlinks: join(dotsxPath, 'symlinks')
+      symlinks: join(dotsxPath, 'symlinks'),
     };
 
     // Create all directories
@@ -169,7 +176,7 @@ spotify
 alias my-script="$HOME/.dotsx/bin/my-script"
 alias my-python-tool="$HOME/.dotsx/bin/my-python-tool"
 alias my-node-tool="$HOME/.dotsx/bin/my-node-tool"
-`
+`,
     );
 
     // Create package files
@@ -181,7 +188,7 @@ alias my-node-tool="$HOME/.dotsx/bin/my-node-tool"
       `# DotsX managed .zshrc
 export PATH="$HOME/.dotsx/bin:$PATH"
 source ~/.dotsx/bin/_dotsx-bin.aliases
-`
+`,
     );
 
     await writeFile(
@@ -189,7 +196,7 @@ source ~/.dotsx/bin/_dotsx-bin.aliases
       `# DotsX managed .bashrc
 export PATH="$HOME/.dotsx/bin:$PATH"
 source ~/.dotsx/bin/_dotsx-bin.aliases
-`
+`,
     );
 
     // Create IDE configs
@@ -198,10 +205,14 @@ source ~/.dotsx/bin/_dotsx-bin.aliases
 
     await writeFile(
       join(vscodeDir, 'settings.json'),
-      JSON.stringify({
-        "editor.fontSize": 16,
-        "workbench.colorTheme": "Monokai"
-      }, null, 2)
+      JSON.stringify(
+        {
+          'editor.fontSize': 16,
+          'workbench.colorTheme': 'Monokai',
+        },
+        null,
+        2,
+      ),
     );
   }
 }

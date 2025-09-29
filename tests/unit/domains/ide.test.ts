@@ -40,10 +40,7 @@ describe('domains/ide', () => {
 
     test('should use home directory paths starting with ~/', () => {
       for (const domain of ideDomains) {
-        const allPaths = [
-          ...(domain.symlinkPaths?.linux ?? []),
-          ...(domain.symlinkPaths?.macos ?? [])
-        ];
+        const allPaths = [...(domain.symlinkPaths?.linux ?? []), ...(domain.symlinkPaths?.macos ?? [])];
 
         for (const path of allPaths) {
           expect(path).toMatch(/^~/);
@@ -93,16 +90,16 @@ describe('domains/ide', () => {
       const macosPaths = vscodeDomain.symlinkPaths?.macos ?? [];
 
       // Both should have settings.json
-      expect(linuxPaths.some(p => p.includes('settings.json'))).toBe(true);
-      expect(macosPaths.some(p => p.includes('settings.json'))).toBe(true);
+      expect(linuxPaths.some((p) => p.includes('settings.json'))).toBe(true);
+      expect(macosPaths.some((p) => p.includes('settings.json'))).toBe(true);
 
       // Both should have keybindings.json
-      expect(linuxPaths.some(p => p.includes('keybindings.json'))).toBe(true);
-      expect(macosPaths.some(p => p.includes('keybindings.json'))).toBe(true);
+      expect(linuxPaths.some((p) => p.includes('keybindings.json'))).toBe(true);
+      expect(macosPaths.some((p) => p.includes('keybindings.json'))).toBe(true);
 
       // Both should have snippets
-      expect(linuxPaths.some(p => p.includes('snippets'))).toBe(true);
-      expect(macosPaths.some(p => p.includes('snippets'))).toBe(true);
+      expect(linuxPaths.some((p) => p.includes('snippets'))).toBe(true);
+      expect(macosPaths.some((p) => p.includes('snippets'))).toBe(true);
     });
   });
 
@@ -138,22 +135,22 @@ describe('domains/ide', () => {
 
     test('should include common configuration files', () => {
       // Both should have settings.json
-      expect(cursorDomain.symlinkPaths?.linux?.some(p => p.includes('settings.json'))).toBe(true);
-      expect(cursorDomain.symlinkPaths?.macos?.some(p => p.includes('settings.json'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.linux?.some((p) => p.includes('settings.json'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.macos?.some((p) => p.includes('settings.json'))).toBe(true);
 
       // Both should have keybindings.json
-      expect(cursorDomain.symlinkPaths?.linux?.some(p => p.includes('keybindings.json'))).toBe(true);
-      expect(cursorDomain.symlinkPaths?.macos?.some(p => p.includes('keybindings.json'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.linux?.some((p) => p.includes('keybindings.json'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.macos?.some((p) => p.includes('keybindings.json'))).toBe(true);
 
       // Both should have snippets
-      expect(cursorDomain.symlinkPaths?.linux?.some(p => p.includes('snippets'))).toBe(true);
-      expect(cursorDomain.symlinkPaths?.macos?.some(p => p.includes('snippets'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.linux?.some((p) => p.includes('snippets'))).toBe(true);
+      expect(cursorDomain.symlinkPaths?.macos?.some((p) => p.includes('snippets'))).toBe(true);
     });
   });
 
   describe('IDE domain comparison', () => {
     test('should have unique names', () => {
-      const names = ideDomains.map(d => d.name);
+      const names = ideDomains.map((d) => d.name);
       const uniqueNames = [...new Set(names)];
 
       expect(names.length).toBe(uniqueNames.length);
@@ -192,12 +189,9 @@ describe('domains/ide', () => {
   describe('path validation', () => {
     test('should have valid JSON file extensions where appropriate', () => {
       for (const domain of ideDomains) {
-        const allPaths = [
-          ...domain.symlinkPaths?.linux ?? [],
-          ...domain.symlinkPaths?.macos ?? [],
-        ];
+        const allPaths = [...(domain.symlinkPaths?.linux ?? []), ...(domain.symlinkPaths?.macos ?? [])];
 
-        const jsonPaths = allPaths.filter(p => p.includes('.json'));
+        const jsonPaths = allPaths.filter((p) => p.includes('.json'));
         expect(jsonPaths.length).toBeGreaterThan(0);
 
         for (const jsonPath of jsonPaths) {
@@ -208,10 +202,7 @@ describe('domains/ide', () => {
 
     test('should not have empty paths', () => {
       for (const domain of ideDomains) {
-        const allPaths = [
-          ...domain.symlinkPaths?.linux ?? [],
-          ...domain.symlinkPaths?.macos ?? []
-        ];
+        const allPaths = [...(domain.symlinkPaths?.linux ?? []), ...(domain.symlinkPaths?.macos ?? [])];
 
         for (const path of allPaths) {
           expect(path.length).toBeGreaterThan(0);
@@ -223,10 +214,9 @@ describe('domains/ide', () => {
     test('should have consistent order of configuration files', () => {
       // Settings should come before keybindings, snippets last
       for (const domain of ideDomains) {
-
-        const settingsIndex = domain.symlinkPaths?.linux?.findIndex(p => p.includes('settings.json'));
-        const keybindingsIndex = domain.symlinkPaths?.linux?.findIndex(p => p.includes('keybindings.json'));
-        const snippetsIndex = domain.symlinkPaths?.linux?.findIndex(p => p.includes('snippets'));
+        const settingsIndex = domain.symlinkPaths?.linux?.findIndex((p) => p.includes('settings.json'));
+        const keybindingsIndex = domain.symlinkPaths?.linux?.findIndex((p) => p.includes('keybindings.json'));
+        const snippetsIndex = domain.symlinkPaths?.linux?.findIndex((p) => p.includes('snippets'));
 
         expect(settingsIndex).toBeGreaterThan(-1);
         expect(keybindingsIndex).toBeGreaterThan(-1);

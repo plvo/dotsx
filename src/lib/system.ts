@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { OsInfo, SystemInfo } from '@/types';
+import type { Domain, OsInfo, SystemInfo } from '@/types';
 import { DOTSX, DOTSX_PATH } from './constants.ts';
 import { FileLib } from './file.ts';
 
@@ -36,20 +36,25 @@ export const DotsxInfoLib = {
     return FileLib.readDirectory(DOTSX.IDE.PATH);
   },
 
+  getDotsxPath(domain: Domain, symlinkPath: string, dotsxDirPath: string): string {
+    const fileName = path.basename(symlinkPath);
+    return path.resolve(dotsxDirPath, domain.name, fileName);
+  },
+
   getDotsxState() {
-   const isInitialized = this.isInitialized();
-   const isBinInitialized = this.isBinInitialized();
-   const isOsInitialized = this.getInitializedOs() !== null;
-   const isTerminalInitialized = this.getInitializedTerminal() !== null;
-   const isIdeInitialized = this.getInitializedIde() !== null;
-   
-   return {
+    const isInitialized = this.isInitialized();
+    const isBinInitialized = this.isBinInitialized();
+    const isOsInitialized = this.getInitializedOs() !== null;
+    const isTerminalInitialized = this.getInitializedTerminal() !== null;
+    const isIdeInitialized = this.getInitializedIde() !== null;
+
+    return {
       isInitialized,
       isBinInitialized,
       isOsInitialized,
       isTerminalInitialized,
       isIdeInitialized,
-   }
+    };
   },
 };
 
