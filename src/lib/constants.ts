@@ -2,10 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 function getDOTSX_PATH(): string {
-  return (
-    process.env.DOTSX_PATH ||
-    path.resolve(process.env.HOME || os.homedir(), '.dotsx')
-  );
+  return process.env.DOTSX_PATH || path.resolve(process.env.HOME || os.homedir(), '.dotsx');
 }
 
 export const DOTSX_PATH: string = getDOTSX_PATH();
@@ -55,8 +52,8 @@ export const DOTSX = {
 
   TERMINAL: {
     PATH: path.resolve(DOTSX_PATH, 'terminal'),
-    ZSHRC: path.resolve(DOTSX_PATH, 'terminal', '.zshrc') satisfies string,
-    BASHRC: path.resolve(DOTSX_PATH, 'terminal', '.bashrc') satisfies string,
-    TMUX_CONF: path.resolve(DOTSX_PATH, 'terminal', '.tmux.conf') satisfies string,
+    ZSH: path.resolve(DOTSX_PATH, 'terminal', 'zsh'),
+    BASH: path.resolve(DOTSX_PATH, 'terminal', 'bash'),
+    TMUX: path.resolve(DOTSX_PATH, 'terminal', 'tmux'),
   },
 } as const;

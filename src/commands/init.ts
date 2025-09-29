@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import path, { resolve } from 'node:path';
 import { log, multiselect, type Option } from '@clack/prompts';
 import { getDomainByDistro, getDomainByName, getDomainsByType } from '@/domains';
 import { DOTSX, DOTSX_PATH } from '@/lib/constants';
@@ -77,7 +77,7 @@ export const initCommand = {
   },
 
   getDotfilesPath(domain: Domain, symlinkPath: string): string {
-    const fileName = symlinkPath.split('/').pop() || '';
+    const fileName = path.basename(symlinkPath);
     return resolve(DOTSX.IDE.PATH, domain.name, fileName);
   },
 
@@ -120,8 +120,8 @@ export const initCommand = {
 
     for (const symlinkPath of domain.symlinkPaths[currentOs]) {
       const systemPath = FileLib.expandPath(symlinkPath);
-      const fileName = symlinkPath.split('/').pop() || '';
-      const dotsxPath = resolve(DOTSX.TERMINAL.PATH, fileName);
+      const fileName = path.basename(symlinkPath);
+      const dotsxPath = resolve(DOTSX.TERMINAL.PATH, domain.name, fileName);
 
       if (FileLib.isPathExists(systemPath)) {
         FileLib.safeSymlink(systemPath, dotsxPath);
@@ -131,7 +131,10 @@ export const initCommand = {
       }
     }
 
-    imported.length > 0 && log.success(`Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`);
+    imported.length > 0 &&
+      log.success(
+        `Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`,
+      );
     notFound.length > 0 && log.warning(`Ignored because not found:\n${notFound.join('\n')}`);
   },
 
@@ -160,7 +163,10 @@ export const initCommand = {
       }
     }
 
-    imported.length > 0 && log.success(`Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`);
+    imported.length > 0 &&
+      log.success(
+        `Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`,
+      );
     notFound.length > 0 && log.warning(`Ignored because not found:\n${notFound.join('\n')}`);
   },
 };

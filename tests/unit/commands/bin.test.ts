@@ -164,11 +164,11 @@ describe('binCommand', () => {
         '_private.sh',
         'script2.py',
         'subdir',
-        'script3.js'
+        'script3.js',
       ]);
       const isFileSpy = spyOn(FileLib, 'isFile')
-        .mockReturnValueOnce(true)  // script1.sh
-        .mockReturnValueOnce(true)  // script2.py
+        .mockReturnValueOnce(true) // script1.sh
+        .mockReturnValueOnce(true) // script2.py
         .mockReturnValueOnce(false) // subdir
         .mockReturnValueOnce(true); // script3.js
 
@@ -284,7 +284,7 @@ describe('binCommand', () => {
       });
 
       expect(() => binCommand.addAlias('testscript', '/path/to/script')).toThrow(
-        `Failed to add alias to ${DOTSX.BIN.ALIAS}: Error: Permission denied`
+        `Failed to add alias to ${DOTSX.BIN.ALIAS}: Error: Permission denied`,
       );
 
       isFileSpy.mockRestore();

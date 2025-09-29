@@ -6,8 +6,23 @@ import { initCommand } from './commands/init';
 import { linkCommand } from './commands/link';
 import { packageCommand } from './commands/package';
 import { ConsoleLib } from './lib/console';
+import { DOTSX } from './lib/constants';
+import { createDomainCommand } from './lib/domain-factory';
 import { DotsxInfoLib, SystemLib } from './lib/system';
-import { ideCommand } from './commands/ide';
+
+const ideCommand = createDomainCommand({
+  type: 'ide',
+  basePath: DOTSX.IDE.PATH,
+  icon: '🚀',
+  displayName: 'IDE',
+});
+
+const terminalCommand = createDomainCommand({
+  type: 'terminal',
+  basePath: DOTSX.TERMINAL.PATH,
+  icon: '🖥️',
+  displayName: 'terminal',
+});
 
 async function main() {
   intro('🚀 DotsX CLI');
@@ -41,14 +56,15 @@ async function main() {
     const action = await select({
       message: 'Welcome!',
       options: [
+        { value: 'link', label: '📋 Symlinks', hint: 'Create symlinks for files and directories' },
         {
           value: 'package',
-          label: `📦 Manage ${osInfo.distro || osInfo.family} packages`,
+          label: `📦 ${osInfo.distro || osInfo.family} packages`,
           hint: 'Install, remove, and manage packages',
         },
-        { value: 'link', label: '📋 Symlink', hint: 'Create symlinks for files and directories' },
-        { value: 'bin', label: '⚡ Manage bin scripts', hint: 'Manage bin scripts and aliases' },
-        { value: 'ide', label: '💻 Manage IDE configs', hint: 'Manage your IDEs settings' },
+        { value: 'bin', label: "🚀 Bin's scripts", hint: 'Manage bin scripts and aliases' },
+        { value: 'ide', label: '💻 IDE configs', hint: 'Manage your IDEs settings' },
+        { value: 'terminal', label: '🖥️  Terminal configs', hint: 'Manage your terminal configurations' },
       ],
     });
 
@@ -58,6 +74,8 @@ async function main() {
       await linkCommand.execute();
     } else if (action === 'bin') {
       await binCommand.execute();
+    } else if (action === 'terminal') {
+      await terminalCommand.execute();
     } else if (action === 'ide') {
       await ideCommand.execute();
     }

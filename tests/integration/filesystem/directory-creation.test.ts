@@ -17,7 +17,7 @@ describe('Directory Creation Integration Tests', () => {
         join(dotsxPath, 'os'),
         join(dotsxPath, 'os', 'debian'),
         join(dotsxPath, 'terminal'),
-        join(dotsxPath, 'symlinks')
+        join(dotsxPath, 'symlinks'),
       ];
 
       // Create the directory structure using FileLib

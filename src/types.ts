@@ -1,11 +1,11 @@
 export type Family = 'linux' | 'windows' | 'macos' | 'bsd' | 'unix' | 'unknown';
 
 export interface OsInfo {
-   platform: NodeJS.Platform;
-   family: Family;
-   distro?: string | null;
-   release?: string | null;
- }
+  platform: NodeJS.Platform;
+  family: Family;
+  distro?: string | null;
+  release?: string | null;
+}
 
 export interface SystemInfo extends OsInfo {
   arch: string;
@@ -48,3 +48,11 @@ export type AllLinks = {
   correctSymlinks: Array<Link>;
   incorrectSymlinks: Array<Link>;
 };
+
+export interface ConfigStatusInfo {
+  status: 'fully_imported' | 'partially_imported' | 'not_imported' | 'incompatible';
+  importedPaths: string[];
+  missingPaths: string[];
+  totalFiles: number;
+  importedFiles: number;
+}

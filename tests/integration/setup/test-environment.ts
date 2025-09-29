@@ -52,7 +52,7 @@ export class IntegrationTestEnvironment {
       testDir: this.testDir,
       dotsxPath,
       systemConfigDir,
-      homedir
+      homedir,
     };
   }
 
@@ -116,7 +116,7 @@ export class IntegrationTestEnvironment {
       testDir: this.testDir,
       dotsxPath: join(homedir, '.dotsx'),
       systemConfigDir: join(homedir, '.config'),
-      homedir
+      homedir,
     };
   }
 }
@@ -125,12 +125,7 @@ export class IntegrationTestEnvironment {
  * Utility function for integration test setup
  */
 export async function withIntegrationEnvironment<T>(
-  testFn: (env: {
-    testDir: string;
-    dotsxPath: string;
-    systemConfigDir: string;
-    homedir: string;
-  }) => Promise<T>
+  testFn: (env: { testDir: string; dotsxPath: string; systemConfigDir: string; homedir: string }) => Promise<T>,
 ): Promise<T> {
   const testEnv = new IntegrationTestEnvironment();
 

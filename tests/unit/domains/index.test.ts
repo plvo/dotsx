@@ -22,7 +22,7 @@ describe('domains/index', () => {
     test('should contain all expected domains', () => {
       expect(allDomains.length).toBeGreaterThanOrEqual(8); // At least 8 domains now
 
-      const domainNames = allDomains.map(domain => domain.name);
+      const domainNames = allDomains.map((domain) => domain.name);
       expect(domainNames).toContain('debian');
       expect(domainNames).toContain('fedora');
       expect(domainNames).toContain('arch');
@@ -37,9 +37,9 @@ describe('domains/index', () => {
     });
 
     test('should have correct domain types', () => {
-      const osDomains = allDomains.filter(d => d.type === 'os');
-      const ideDomains = allDomains.filter(d => d.type === 'ide');
-      const terminalDomains = allDomains.filter(d => d.type === 'terminal');
+      const osDomains = allDomains.filter((d) => d.type === 'os');
+      const ideDomains = allDomains.filter((d) => d.type === 'ide');
+      const terminalDomains = allDomains.filter((d) => d.type === 'terminal');
 
       expect(osDomains.length).toBeGreaterThanOrEqual(6); // 6 OS domains now (including macOS)
       expect(ideDomains).toHaveLength(2);
@@ -52,12 +52,12 @@ describe('domains/index', () => {
       const osDomains = getDomainsByType('os');
 
       expect(osDomains.length).toBeGreaterThanOrEqual(6);
-      const osNames = osDomains.map(d => d.name);
+      const osNames = osDomains.map((d) => d.name);
       expect(osNames).toContain('debian');
       expect(osNames).toContain('fedora');
       expect(osNames).toContain('arch');
       expect(osNames).toContain('macos');
-      
+
       for (const domain of osDomains) {
         expect(domain.type).toBe('os');
       }
@@ -67,7 +67,7 @@ describe('domains/index', () => {
       const ideDomains = getDomainsByType('ide');
 
       expect(ideDomains).toHaveLength(2);
-      const ideNames = ideDomains.map(d => d.name);
+      const ideNames = ideDomains.map((d) => d.name);
       expect(ideNames).toContain('cursor');
       expect(ideNames).toContain('vscode');
 
@@ -80,7 +80,7 @@ describe('domains/index', () => {
       const terminalDomains = getDomainsByType('terminal');
 
       expect(terminalDomains).toHaveLength(3);
-      const terminalNames = terminalDomains.map(d => d.name);
+      const terminalNames = terminalDomains.map((d) => d.name);
       expect(terminalNames).toContain('zsh');
       expect(terminalNames).toContain('bash');
       expect(terminalNames).toContain('tmux');
@@ -247,10 +247,7 @@ describe('domains/index', () => {
     });
 
     test('should have symlink paths for IDE and terminal domains', () => {
-      const ideAndTerminalDomains = [
-        ...getDomainsByType('ide'),
-        ...getDomainsByType('terminal')
-      ];
+      const ideAndTerminalDomains = [...getDomainsByType('ide'), ...getDomainsByType('terminal')];
 
       for (const domain of ideAndTerminalDomains) {
         expect(domain.symlinkPaths).toBeDefined();
