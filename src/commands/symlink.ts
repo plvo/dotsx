@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { confirm, select, text } from '@clack/prompts';
+import { confirm, log, outro, select, text } from '@clack/prompts';
 import { DOTSX } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import type { AllLinks, Link } from '@/types';
@@ -22,8 +22,8 @@ export const symlinkCommand = {
 
   async addLink() {
     const pathInput = await text({
-      message: 'Path to link:',
-      placeholder: 'relative or absolute path',
+      message: 'Path to link',
+      placeholder: 'eg. ~/.hello.json',
       validate: (v) => (v && FileLib.isPathExists(FileLib.expandPath(v)) ? undefined : "File doesn't exist"),
     });
 
@@ -37,7 +37,7 @@ export const symlinkCommand = {
 
   async syncLinks(links: AllLinks) {
     if (links.incorrectSymlinks.length === 0) {
-      console.log('✅ All links correct');
+      log.success('All links correct');
       return;
     }
 
@@ -48,14 +48,14 @@ export const symlinkCommand = {
     for (const { systemPath, dotsxPath } of links.incorrectSymlinks) {
       try {
         FileLib.safeSymlink(systemPath, dotsxPath);
-        console.log(`✅ ${FileLib.getDisplayPath(dotsxPath)}`);
+        log.success(FileLib.getDisplayPath(dotsxPath));
         fixed++;
       } catch (err) {
-        console.log(`❌ ${FileLib.getDisplayPath(dotsxPath)}: ${err}`);
+        log.error(`${FileLib.getDisplayPath(dotsxPath)}: ${err}`);
       }
     }
 
-    console.log(`\n🎉 Fixed ${fixed}/${links.incorrectSymlinks.length} links`);
+    outro(`Fixed ${fixed}/${links.incorrectSymlinks.length} links`);
   },
 
   async checkStatus() {
@@ -73,14 +73,14 @@ export const symlinkCommand = {
       const isCorrect = FileLib.isSymLinkContentCorrect(dotsxPath, systemPath);
       if (isCorrect) {
         correctSymlinks.push({ systemPath, dotsxPath });
-        console.log(`✅ ${displayPath}`);
+        log.success(displayPath);
       } else {
         incorrectSymlinks.push({ systemPath, dotsxPath });
-        console.log(`❌ ${displayPath}`);
+        log.error(displayPath);
       }
     }
 
-    console.log(`\n${correctSymlinks.length}/${links.length} links correct`);
+    outro(`${correctSymlinks.length}/${links.length} links correct`);
 
     return { correctSymlinks, incorrectSymlinks };
   },
@@ -99,7 +99,7 @@ export const symlinkCommand = {
           results.push(...scan(fullPath, relPath));
         } else {
           results.push({
-            systemPath: this.getTargetPath(relPath),
+            systemPath: FileLib.expandPath(relPath),
             dotsxPath: fullPath,
           });
         }
@@ -117,16 +117,5 @@ export const symlinkCommand = {
       return resolve(DOTSX.SYMLINKS, displayPath);
     }
     return resolve(DOTSX.SYMLINKS, systemPath.startsWith('/') ? systemPath.slice(1) : systemPath);
-  },
-
-  getTargetPath(relativePath: string): string {
-    if (relativePath.startsWith('__home__/')) {
-      return FileLib.expandPath(relativePath);
-    }
-    // Legacy support for ~ notation
-    if (relativePath.startsWith('~/')) {
-      return FileLib.expandPath(relativePath);
-    }
-    return `/${relativePath}`;
   },
 };

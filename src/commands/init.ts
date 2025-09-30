@@ -56,6 +56,7 @@ export const initCommand = {
       }
 
       await this.initBin();
+      await this.initSymlinks();
 
       log.success(`🎉 Initialized in: ${DOTSX_PATH}`);
     } catch (error) {
@@ -133,6 +134,15 @@ export const initCommand = {
       log.success(`Bin directory created: ${DOTSX.BIN.PATH}`);
     } else {
       log.success(`Bin directory already exists: ${DOTSX.BIN.PATH}`);
+    }
+  },
+
+  async initSymlinks() {
+    if (!FileLib.isDirectory(DOTSX.SYMLINKS)) {
+      FileLib.createDirectory(DOTSX.SYMLINKS);
+      log.success(`Symlinks directory created: ${DOTSX.SYMLINKS}`);
+    } else {
+      log.success(`Symlinks directory already exists: ${DOTSX.SYMLINKS}`);
     }
   },
 };

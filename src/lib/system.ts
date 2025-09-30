@@ -40,6 +40,10 @@ export const DotsxInfoLib = {
     return FileLib.isDirectory(BACKUP_PATH) && FileLib.readDirectory(BACKUP_PATH).length > 0;
   },
 
+  /**
+   * Get the dotsx path for a given domain and symlink path
+   * @example /home/user/.dotsx/os/debian/apt.txt
+   */
   getDotsxPath(domain: Domain, symlinkPath: string, dotsxDirPath: string): string {
     const fileName = path.basename(symlinkPath);
     return path.resolve(dotsxDirPath, domain.name, fileName);
