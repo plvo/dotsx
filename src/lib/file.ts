@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { log } from '@clack/prompts';
+import { BACKUP_PATH, DOTSX_PATH } from './constants';
 
 export const FileLib = {
   isPathExists(path: string) {
@@ -170,8 +171,23 @@ export const FileLib = {
     return inputPath.replace(homedir(), '~');
   },
 
+  createBackup(dotsxRelativePath: string, systemPath: string) {
+    const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+
+    // Mirror dotsx structure in backup
+    // ~/.dotsx/symlinks/~/.zshrc -> ~/.backup.dotsx/symlinks/~/.zshrc.TIMESTAMP.backup
+    const backupPath = path.join(BACKUP_PATH, `${dotsxRelativePath}.${timestamp}.dotsx.backup`);
+
+    this.createDirectory(path.dirname(backupPath));
+
+    if (this.isFile(systemPath)) {
+      this.copyFile(systemPath, backupPath);
+    } else if (this.isDirectory(systemPath)) {
+      this.copyDirectory(systemPath, backupPath);
+    }
+  },
+
   backupPath(src: string) {
-    // YYYYMMDDHHMMSSMMM
     const formattedTimestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 17);
 
     const dest = `${src}.dotsx.${formattedTimestamp}.backup`;
@@ -192,24 +208,36 @@ export const FileLib = {
   },
 
   /**
-   * Creates a safe symlink from src (source file) to dest (symlink path).
-   * Automatically creates parent directories and backs up existing dest file.
-   * @param src - Source file/directory path (user content)
-   * @param dest - Destination symlink path (~/.dotsx/*)
-   * @param copyFirst - If true, copies src to dest before creating symlink
+   * Creates a safe symlink with backup.
+   * REVERSE MODE: System file points to dotsx (content stored in dotsx, Git tracks it)
+   * @param systemPath - System file path (e.g., ~/.zshrc)
+   * @param dotsxPath - DotsX content path (e.g., ~/.dotsx/symlinks/~/.zshrc)
    */
-  safeSymlink(src: string, dest: string) {
-    // Create parent directory if it doesn't exist
-    this.createDirectory(path.dirname(dest));
-
-    if (this.isFile(dest)) {
-      this.backupPath(dest);
-      this.deleteFile(dest);
-    } else if (this.isDirectory(dest)) {
-      this.backupPath(dest);
-      this.deleteDirectory(dest);
+  safeSymlink(systemPath: string, dotsxPath: string) {
+    if (!this.isPathExists(systemPath)) {
+      throw new Error(`Source path does not exist: ${systemPath}`);
     }
 
-    fs.symlinkSync(src, dest);
+    // Get relative path from DOTSX_PATH for backup mirroring
+    // Example: /home/plv/.dotsx/symlinks/~/.zshrc -> symlinks/~/.zshrc
+    const dotsxRelativePath = path.relative(DOTSX_PATH, dotsxPath);
+
+    // Create backup in ~/.backup.dotsx (mirrors dotsx structure)
+    this.createBackup(dotsxRelativePath, systemPath);
+
+    // Create parent directory for dotsx path
+    this.createDirectory(path.dirname(dotsxPath));
+
+    // Move content to dotsx
+    if (this.isFile(systemPath)) {
+      this.copyFile(systemPath, dotsxPath);
+      this.deleteFile(systemPath);
+    } else if (this.isDirectory(systemPath)) {
+      this.copyDirectory(systemPath, dotsxPath);
+      this.deleteDirectory(systemPath);
+    }
+
+    // Create symlink: system → dotsx
+    fs.symlinkSync(dotsxPath, systemPath);
   },
 };

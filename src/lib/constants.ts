@@ -6,8 +6,11 @@ function getDOTSX_PATH(): string {
 }
 
 export const DOTSX_PATH: string = getDOTSX_PATH();
+export const BACKUP_PATH: string = path.resolve(process.env.HOME || os.homedir(), '.backup.dotsx');
 
 export const DOTSX = {
+  SYMLINKS: path.resolve(DOTSX_PATH, 'symlinks'),
+
   BIN: {
     PATH: path.resolve(DOTSX_PATH, 'bin'),
     ALIAS: path.resolve(DOTSX_PATH, 'bin', '_dotsx-bin.aliases') satisfies string,
@@ -47,8 +50,6 @@ export const DOTSX = {
       BREW: path.resolve(DOTSX_PATH, 'os', 'macos', 'brew.txt') satisfies string,
     },
   },
-
-  SYMLINKS: path.resolve(DOTSX_PATH, 'symlinks'),
 
   TERMINAL: {
     PATH: path.resolve(DOTSX_PATH, 'terminal'),
