@@ -1,12 +1,12 @@
-import { text, confirm, log, spinner } from '@clack/prompts';
+import { confirm, log, spinner, text } from '@clack/prompts';
 import { DOTSX_PATH } from '@/lib/constants';
-import { GitLib } from '@/lib/git';
 import { FileLib } from '@/lib/file';
+import { GitLib } from '@/lib/git';
 import type { CliCommand } from '@/types';
 
-export const gitInitCommand: CliCommand = {
+export const gitCloneCommand: CliCommand = {
   async execute() {
-    log.step('🔧 Initialize DotsX from Git Repository');
+    log.step('🔗 Clone DotsX from Existing Repository');
 
     const isGitInstalled = await GitLib.isGitInstalled();
     if (!isGitInstalled) {
@@ -15,18 +15,21 @@ export const gitInitCommand: CliCommand = {
     }
 
     if (FileLib.isPathExists(DOTSX_PATH)) {
-      const shouldRemove = await confirm({
-        message: `Directory ${DOTSX_PATH} already exists. Remove it and continue?`,
-        initialValue: false,
-      });
+      const isRepo = await GitLib.isGitRepository(DOTSX_PATH);
 
-      if (!shouldRemove) {
-        log.warn('Initialization cancelled.');
+      if (isRepo) {
+        log.error(`${DOTSX_PATH} is already a Git repository.`);
+        log.info('💡 Use "🔗 Manage remote" to connect to a different repository');
         return;
       }
 
-      FileLib.removeDirectory(DOTSX_PATH);
-      log.info(`Removed existing ${DOTSX_PATH}`);
+      log.error(`${DOTSX_PATH} already exists and contains files.`);
+      log.warn('⚠️  Cannot clone - this would overwrite your existing configuration!');
+      log.info('💡 To use an existing remote repository:');
+      log.info('   1. Backup your current ~/.dotsx if needed');
+      log.info('   2. Use "🔧 Git" → "🆕 Create new repository" to initialize git');
+      log.info('   3. Then use "🔗 Manage remote" to connect to your remote');
+      return;
     }
 
     const repoUrl = await text({
@@ -54,14 +57,14 @@ export const gitInitCommand: CliCommand = {
       s.stop('Repository cloned successfully');
 
       const validation = GitLib.validateDotsxStructure(DOTSX_PATH);
-      
+
       if (validation.isValid) {
         log.success('🎉 DotsX initialized successfully from Git repository!');
         log.info('All required directories are present.');
       } else {
         log.warn('⚠️  Repository structure is incomplete');
         log.info(validation.message);
-        
+
         const shouldCreateMissing = await confirm({
           message: 'Would you like to create the missing directories?',
           initialValue: true,
@@ -97,14 +100,9 @@ export const gitInitCommand: CliCommand = {
       if (gitInfo.currentBranch) {
         log.info(`Branch: ${gitInfo.currentBranch}`);
       }
-      
     } catch (error) {
       s.stop('Failed to clone repository');
       log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      
-      if (FileLib.isPathExists(DOTSX_PATH)) {
-        FileLib.removeDirectory(DOTSX_PATH);
-      }
     }
   },
 };

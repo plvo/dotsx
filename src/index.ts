@@ -3,7 +3,7 @@
 import { intro, select } from '@clack/prompts';
 import { binCommand } from './commands/bin';
 import { gitCommand } from './commands/git';
-import { gitInitCommand } from './commands/git-init';
+import { gitCloneCommand } from './commands/git-clone';
 import { initCommand } from './commands/init';
 import { packageCommand } from './commands/os';
 import { recoverCommand } from './commands/recover';
@@ -74,7 +74,7 @@ async function main() {
     if (action === 'scratch') {
       await initCommand.execute();
     } else if (action === 'git') {
-      await gitInitCommand.execute();
+      await gitCloneCommand.execute();
     } else if (action === 'recover') {
       await recoverCommand.execute();
     }

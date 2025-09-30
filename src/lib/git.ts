@@ -105,6 +105,26 @@ export const GitLib = {
     }
   },
 
+  async getDefaultBranch(dirPath: string): Promise<string> {
+    try {
+      // First try to get current branch
+      const currentBranch = await this.getCurrentBranch(dirPath);
+      if (currentBranch && currentBranch !== 'unknown') {
+        return currentBranch;
+      }
+
+      // Fallback: check if main or master exists
+      try {
+        await execAsync('git rev-parse --verify main', { cwd: dirPath });
+        return 'main';
+      } catch {
+        return 'master';
+      }
+    } catch {
+      return 'main';
+    }
+  },
+
   async getLastCommit(
     dirPath: string,
   ): Promise<{ hash: string; message: string; author: string; date: string } | undefined> {
@@ -169,7 +189,17 @@ export const GitLib = {
 
   async addRemote(dirPath: string, remoteName: string, url: string): Promise<void> {
     try {
-      await execAsync(`git remote add ${remoteName} "${url}"`, { cwd: dirPath });
+      // Check if remote already exists
+      const { stdout } = await execAsync('git remote', { cwd: dirPath });
+      const remotes = stdout.trim().split('\n').filter(Boolean);
+
+      if (remotes.includes(remoteName)) {
+        // Remote exists, update URL
+        await execAsync(`git remote set-url ${remoteName} "${url}"`, { cwd: dirPath });
+      } else {
+        // Remote doesn't exist, add it
+        await execAsync(`git remote add ${remoteName} "${url}"`, { cwd: dirPath });
+      }
     } catch (error) {
       throw new Error(`Failed to add remote: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -178,6 +208,15 @@ export const GitLib = {
   async pushToRemote(dirPath: string, branch = 'main'): Promise<void> {
     try {
       await execAsync(`git push -u origin ${branch}`, { cwd: dirPath });
+    } catch (error) {
+      throw new Error(`Failed to push to remote: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  async pushAndSetUpstream(dirPath: string): Promise<void> {
+    try {
+      const branch = await this.getDefaultBranch(dirPath);
+      await execAsync(`git push --set-upstream origin ${branch}`, { cwd: dirPath });
     } catch (error) {
       throw new Error(`Failed to push to remote: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

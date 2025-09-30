@@ -1,6 +1,7 @@
 import { confirm, log, select, spinner, text } from '@clack/prompts';
 import { DOTSX_PATH } from '@/lib/constants';
 import { GitLib } from '@/lib/git';
+import { gitCloneCommand } from './git-clone';
 
 export const gitCommand = {
   async execute() {
@@ -13,17 +14,23 @@ export const gitCommand = {
     const isRepo = await GitLib.isGitRepository(DOTSX_PATH);
 
     if (!isRepo) {
-      const shouldInit = await confirm({
-        message: 'DotsX directory is not a Git repository. Initialize Git?',
-        initialValue: true,
+      const choice = await select({
+        message: 'DotsX directory is not a Git repository. How would you like to proceed?',
+        options: [
+          { value: 'new', label: '🆕 Create new repository', hint: 'Initialize a new local Git repository' },
+          {
+            value: 'clone',
+            label: '🔗 Connect to existing repository',
+            hint: 'Clone from an existing remote repository',
+          },
+        ],
       });
 
-      if (!shouldInit) {
-        log.warn('Git management cancelled.');
-        return;
+      if (choice === 'new') {
+        await this.createNewRepository();
+      } else if (choice === 'clone') {
+        await gitCloneCommand.execute();
       }
-
-      await this.initializeRepository();
       return;
     }
 
@@ -73,31 +80,31 @@ export const gitCommand = {
     }
   },
 
-  async initializeRepository() {
+  async createNewRepository() {
     const s = spinner();
     s.start('Initializing Git repository...');
 
     try {
       await GitLib.initRepository(DOTSX_PATH);
+      await GitLib.addAndCommit(DOTSX_PATH, 'feat: initial DotsX configuration');
       s.stop('Git repository initialized');
 
       const shouldAddRemote = await confirm({
-        message: 'Add a remote repository?',
+        message: 'Do you want to connect this to a remote repository?',
         initialValue: true,
       });
 
-      if (shouldAddRemote) {
-        await this.addRemote();
+      if (!shouldAddRemote) {
+        log.success('Local repository created successfully');
+        return;
       }
 
-      const shouldCommit = await confirm({
-        message: 'Create initial commit?',
-        initialValue: true,
-      });
+      await this.addRemote();
 
-      if (shouldCommit) {
-        await GitLib.addAndCommit(DOTSX_PATH, 'feat: initial DotsX configuration');
-        log.success('Initial commit created');
+      // Push if remote was added
+      const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
+      if (gitInfo.remoteUrl) {
+        await this.pushToRemoteWithConfirm();
       }
     } catch (error) {
       s.stop('Failed to initialize repository');
@@ -105,12 +112,41 @@ export const gitCommand = {
     }
   },
 
+  async pushToRemoteWithConfirm() {
+    const shouldPush = await confirm({
+      message: 'Push to remote repository now?',
+      initialValue: true,
+    });
+
+    if (!shouldPush) return;
+
+    const s = spinner();
+    s.start('Pushing to remote...');
+    try {
+      await GitLib.pushAndSetUpstream(DOTSX_PATH);
+      s.stop('Successfully pushed to remote');
+      log.success('Repository is now connected and synced with remote');
+    } catch (error) {
+      s.stop('Failed to push');
+      log.error(`Failed to push: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      log.info('💡 You can push later using the "📤 Push to remote" option');
+    }
+  },
+
   async addRemote() {
     const createRepoOption = await select({
       message: 'How do you want to add the remote repository?',
       options: [
-        { value: 'existing', label: '🔗 Use existing repository', hint: 'I already have a repository created' },
-        { value: 'create', label: '✨ Create new repository', hint: 'Create a new repository automatically' },
+        {
+          value: 'create',
+          label: '📦 Create on GitHub automatically',
+          hint: 'Create a new repository on GitHub (requires gh CLI)',
+        },
+        {
+          value: 'existing',
+          label: '🔗 I have an existing repository',
+          hint: 'Connect to an existing remote repository URL',
+        },
       ],
     });
 
@@ -138,23 +174,11 @@ export const gitCommand = {
       return;
     }
 
-    const platform = await select({
-      message: 'Choose platform:',
-      options: [
-        { value: 'github', label: '🐙 GitHub', hint: 'Create repository on GitHub (requires gh CLI)' },
-        { value: 'manual', label: '🔧 Manual', hint: 'I will create the repository myself' },
-      ],
-    });
-
-    if (platform === 'github') {
-      await this.createGitHubRepository(repoName);
-    } else {
-      await this.showManualInstructions(repoName);
-    }
+    await this.createGitHubRepository(repoName);
   },
 
   async createGitHubRepository(repoName: string) {
-    log.warn('⚠️  This will create a repository on your GitHub account');
+    log.info('This will create a repository on your GitHub account');
 
     const isGhInstalled = await GitLib.isGhInstalled();
     if (!isGhInstalled) {
@@ -188,32 +212,12 @@ export const gitCommand = {
     try {
       const repoUrl = await GitLib.createGitHubRepo(repoName, isPrivate);
       await GitLib.addRemote(DOTSX_PATH, 'origin', repoUrl);
-      s.stop('✅ Repository created and remote added');
-      log.success(`🎉 Repository created: ${repoUrl}`);
+      s.stop('Repository created and remote added');
+      log.success(`Repository created: ${repoUrl}`);
     } catch (error) {
-      s.stop('❌ Failed to create repository');
+      s.stop('Failed to create repository');
       log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       log.info('💡 You can create the repository manually and add it as a remote');
-    }
-  },
-
-  async showManualInstructions(repoName: string) {
-    log.warn('⚠️  You need to create the repository manually');
-    log.info('📋 Instructions:');
-    log.info('1. Go to your Git platform (GitHub, GitLab, Bitbucket, etc.)');
-    log.info(`2. Create a new repository named: ${repoName}`);
-    log.info('3. Keep it empty (no README, .gitignore, or license)');
-    log.info('4. Copy the repository URL');
-
-    const shouldAddNow = await confirm({
-      message: 'Have you created the repository? Add it now?',
-      initialValue: false,
-    });
-
-    if (shouldAddNow) {
-      await this.addExistingRemote();
-    } else {
-      log.info('💡 You can add the remote later via "🔗 Manage remote"');
     }
   },
 
@@ -264,16 +268,14 @@ export const gitCommand = {
     }
 
     const s = spinner();
-    s.start('Syncing with remote repository...');
+    s.start('Syncing with remote...');
 
     try {
       await GitLib.pullFromRemote(DOTSX_PATH);
       s.stop('Successfully synced with remote');
-      log.success('Your DotsX configuration is now up-to-date');
     } catch (error) {
       s.stop('Sync failed');
-      log.error(`Failed to sync: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      log.info('💡 Try resolving conflicts manually or stash your changes first');
+      log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
 
@@ -288,12 +290,7 @@ export const gitCommand = {
     const commitMessage = await text({
       message: 'Enter commit message:',
       placeholder: 'Update DotsX configuration',
-      validate: (value) => {
-        if (!value || value.trim().length === 0) {
-          return 'Commit message is required';
-        }
-        return undefined;
-      },
+      validate: (value) => (!value?.trim() ? 'Commit message is required' : undefined),
     });
 
     if (!commitMessage || typeof commitMessage !== 'string') {
@@ -307,10 +304,9 @@ export const gitCommand = {
     try {
       await GitLib.addAndCommit(DOTSX_PATH, commitMessage);
       s.stop('Changes committed successfully');
-      log.success('Your changes have been committed');
     } catch (error) {
       s.stop('Commit failed');
-      log.error(`Failed to commit: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
 
@@ -333,15 +329,14 @@ export const gitCommand = {
     }
 
     const s = spinner();
-    s.start('Pushing to remote repository...');
+    s.start('Pushing to remote...');
 
     try {
       await GitLib.pushToRemote(DOTSX_PATH, gitInfo.currentBranch);
       s.stop('Successfully pushed to remote');
-      log.success('Your changes have been pushed to the remote repository');
     } catch (error) {
       s.stop('Push failed');
-      log.error(`Failed to push: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
 
