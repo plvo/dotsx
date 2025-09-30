@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { log } from '@clack/prompts';
-import { BACKUP_PATH, DOTSX_PATH } from './constants';
+import { BACKUP_PATH, DOTSX_PATH, MAX_BACKUPS_PER_FILE } from './constants';
 
 export const FileLib = {
   isPathExists(path: string) {
@@ -171,6 +171,54 @@ export const FileLib = {
     return inputPath.replace(homedir(), '~');
   },
 
+  cleanupOldBackups(dotsxRelativePath: string, maxBackups: number = MAX_BACKUPS_PER_FILE) {
+    try {
+      // Find all backups for this file
+      // Pattern: symlinks/~/.zshrc.TIMESTAMP.dotsx.backup
+      const backupDir = path.dirname(path.join(BACKUP_PATH, dotsxRelativePath));
+      const fileName = path.basename(dotsxRelativePath);
+
+      if (!this.isDirectory(backupDir)) {
+        return;
+      }
+
+      // Find all backup files matching the pattern
+      const allFiles = this.readDirectory(backupDir);
+      const backupFiles = allFiles
+        .filter((file) => {
+          // Match: filename.TIMESTAMP.dotsx.backup
+          const pattern = new RegExp(`^${fileName}\\.\\d{14}\\.dotsx\\.backup$`);
+          return pattern.test(file);
+        })
+        .map((file) => ({
+          name: file,
+          fullPath: path.join(backupDir, file),
+          // Extract timestamp for sorting
+          timestamp: file.match(/\.(\d{14})\.dotsx\.backup$/)?.[1] || '',
+        }));
+
+      // Sort by timestamp (newest first)
+      backupFiles.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
+      // Delete backups beyond the limit
+      const backupsToDelete = backupFiles.slice(maxBackups);
+
+      for (const backup of backupsToDelete) {
+        if (this.isFile(backup.fullPath)) {
+          this.deleteFile(backup.fullPath);
+        } else if (this.isDirectory(backup.fullPath)) {
+          this.deleteDirectory(backup.fullPath);
+        }
+      }
+
+      if (backupsToDelete.length > 0) {
+        log.info(`Cleaned up ${backupsToDelete.length} old backup(s) for ${dotsxRelativePath}`);
+      }
+    } catch (error) {
+      log.warning(`Failed to cleanup old backups: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
   createBackup(dotsxRelativePath: string, systemPath: string) {
     const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
 
@@ -185,6 +233,9 @@ export const FileLib = {
     } else if (this.isDirectory(systemPath)) {
       this.copyDirectory(systemPath, backupPath);
     }
+
+    // Cleanup old backups after creating a new one
+    this.cleanupOldBackups(dotsxRelativePath);
   },
 
   /**
@@ -198,23 +249,69 @@ export const FileLib = {
       throw new Error(`Source path does not exist: ${systemPath}`);
     }
 
+    // Early return: If systemPath is already a correct symlink to dotsxPath, nothing to do
+    if (this.isSymLinkContentCorrect(dotsxPath, systemPath)) {
+      log.info(`Symlink already correct: ${this.getDisplayPath(systemPath)}`);
+      return;
+    }
+
     // Get relative path from DOTSX_PATH for backup mirroring
     // Example: /home/plv/.dotsx/symlinks/~/.zshrc -> symlinks/~/.zshrc
     const dotsxRelativePath = path.relative(DOTSX_PATH, dotsxPath);
 
+    let sourceToBackup = systemPath;
+    let sourceToMove = systemPath;
+
+    // Handle case where systemPath is an existing symlink (but pointing to wrong place)
+    if (this.isSymLink(systemPath)) {
+      try {
+        // Resolve the symlink to get the actual target
+        const symlinkTarget = fs.readlinkSync(systemPath);
+        const resolvedPath = path.resolve(path.dirname(systemPath), symlinkTarget);
+
+        // If the resolved path exists and has content, use it for backup
+        if (this.isPathExists(resolvedPath)) {
+          sourceToBackup = resolvedPath;
+          sourceToMove = resolvedPath;
+          log.info(`Following symlink to actual content: ${this.getDisplayPath(resolvedPath)}`);
+        }
+
+        // Delete the old symlink first
+        fs.unlinkSync(systemPath);
+      } catch (error) {
+        log.warning(`Could not resolve symlink ${this.getDisplayPath(systemPath)}: ${error}`);
+        // If we can't resolve it, just delete the broken symlink
+        fs.unlinkSync(systemPath);
+      }
+    }
+
     // Create backup in ~/.backup.dotsx (mirrors dotsx structure)
-    this.createBackup(dotsxRelativePath, systemPath);
+    this.createBackup(dotsxRelativePath, sourceToBackup);
 
     // Create parent directory for dotsx path
     this.createDirectory(path.dirname(dotsxPath));
 
-    // Move content to dotsx
-    if (this.isFile(systemPath)) {
-      this.copyFile(systemPath, dotsxPath);
-      this.deleteFile(systemPath);
-    } else if (this.isDirectory(systemPath)) {
-      this.copyDirectory(systemPath, dotsxPath);
-      this.deleteDirectory(systemPath);
+    // Move content to dotsx (only if source is not already the dotsx path)
+    if (sourceToMove !== dotsxPath && this.isPathExists(sourceToMove)) {
+      if (this.isFile(sourceToMove)) {
+        this.copyFile(sourceToMove, dotsxPath);
+        this.deleteFile(sourceToMove);
+      } else if (this.isDirectory(sourceToMove)) {
+        this.copyDirectory(sourceToMove, dotsxPath);
+        this.deleteDirectory(sourceToMove);
+      }
+    }
+
+    // Ensure systemPath doesn't exist before creating symlink
+    // (in case it's still there after processing)
+    if (this.isPathExists(systemPath)) {
+      if (this.isFile(systemPath)) {
+        this.deleteFile(systemPath);
+      } else if (this.isDirectory(systemPath)) {
+        this.deleteDirectory(systemPath);
+      } else if (this.isSymLink(systemPath)) {
+        fs.unlinkSync(systemPath);
+      }
     }
 
     // Create symlink: system → dotsx

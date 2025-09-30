@@ -70,7 +70,7 @@ export const symlinkCommand = {
 
     for (const { systemPath, dotsxPath } of links) {
       const displayPath = FileLib.getDisplayPath(dotsxPath);
-      const isCorrect = FileLib.isSymLinkContentCorrect(systemPath, dotsxPath);
+      const isCorrect = FileLib.isSymLinkContentCorrect(dotsxPath, systemPath);
       if (isCorrect) {
         correctSymlinks.push({ systemPath, dotsxPath });
         console.log(`✅ ${displayPath}`);
