@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { log, select } from '@clack/prompts';
+import { log, multiselect, select } from '@clack/prompts';
 import { BACKUP_PATH, DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 
@@ -27,21 +27,26 @@ export const recoverCommand = {
     const grouped = this.groupBackupsByPath(backups);
     const filePaths = Object.keys(grouped);
 
-    const selected = await select({
+    const options = filePaths.map((filePath) => ({
+      value: filePath,
+      label: filePath, // Show dotsx relative path like "symlinks/~/.zshrc"
+      hint: `${grouped[filePath]?.length} backup(s) available`,
+    }));
+
+    const selected = await multiselect({
       message: 'Which file do you want to recover?',
-      options: filePaths.map((filePath) => ({
-        value: filePath,
-        label: filePath, // Show dotsx relative path like "symlinks/~/.zshrc"
-        hint: `${grouped[filePath].length} backup(s) available`,
-      })),
+      options,
+      initialValues: options.map((option) => option.value),
     });
 
-    if (!selected || typeof selected !== 'string') {
+    if (!Array.isArray(selected) || selected.length === 0) {
       log.warn('Recovery cancelled');
       return;
     }
 
-    await this.recoverFile(selected, grouped[selected]);
+    for (const filePath of selected) {
+      await this.recoverFile(filePath, grouped[filePath] ?? []);
+    }
   },
 
   scanBackups(): BackupFile[] {
@@ -64,6 +69,11 @@ export const recoverCommand = {
             const dotsxRelativePath = match[1]; // e.g., "symlinks/~/.zshrc"
             const timestamp = match[2];
 
+            if (!dotsxRelativePath || !timestamp) {
+              log.error(`Invalid backup file format ${fullPath}`);
+              continue;
+            }
+
             results.push({
               dotsxRelativePath,
               timestamp,
@@ -85,12 +95,12 @@ export const recoverCommand = {
       if (!grouped[backup.dotsxRelativePath]) {
         grouped[backup.dotsxRelativePath] = [];
       }
-      grouped[backup.dotsxRelativePath].push(backup);
+      grouped[backup.dotsxRelativePath]?.push(backup);
     }
 
     // Sort backups by timestamp (newest first)
     for (const filePath in grouped) {
-      grouped[filePath].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+      grouped[filePath]?.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
     }
 
     return grouped;
@@ -139,8 +149,7 @@ export const recoverCommand = {
         FileLib.copyDirectory(selectedBackup, dotsxPath);
       }
 
-      log.success(`✅ Recovered to dotsx: ${dotsxRelativePath}`);
-      log.info('💡 You may need to recreate symlinks using "dotsx link --sync" (future feature)');
+      log.success(`Recovered to dotsx: ${dotsxRelativePath}`);
     } catch (error) {
       log.error(`Failed to recover: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

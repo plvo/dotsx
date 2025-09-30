@@ -62,13 +62,7 @@ export const initCommand = {
         }
       }
 
-      if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
-        FileLib.createDirectory(DOTSX.BIN.PATH);
-        FileLib.createFile(DOTSX.BIN.ALIAS);
-        log.success(`Bin directory created: ${DOTSX.BIN.PATH}`);
-      } else {
-        log.success(`Bin directory already exists: ${DOTSX.BIN.PATH}`);
-      }
+      await this.initBin();
 
       log.success(`🎉 Initialized in: ${DOTSX_PATH}`);
     } catch (error) {
@@ -130,5 +124,15 @@ export const initCommand = {
         `Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`,
       );
     notFound.length > 0 && log.warning(`Ignored because not found:\n${notFound.join('\n')}`);
+  },
+
+  async initBin() {
+    if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
+      FileLib.createDirectory(DOTSX.BIN.PATH);
+      FileLib.createFile(DOTSX.BIN.ALIAS);
+      log.success(`Bin directory created: ${DOTSX.BIN.PATH}`);
+    } else {
+      log.success(`Bin directory already exists: ${DOTSX.BIN.PATH}`);
+    }
   },
 };

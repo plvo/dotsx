@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { Domain, OsInfo, SystemInfo } from '@/types';
-import { DOTSX, DOTSX_PATH } from './constants.ts';
+import { BACKUP_PATH, DOTSX, DOTSX_PATH } from './constants.ts';
 import { FileLib } from './file.ts';
 
 export const DotsxInfoLib = {
@@ -36,6 +36,10 @@ export const DotsxInfoLib = {
     return FileLib.readDirectory(DOTSX.IDE.PATH);
   },
 
+  hasBackups(): boolean {
+    return FileLib.isDirectory(BACKUP_PATH) && FileLib.readDirectory(BACKUP_PATH).length > 0;
+  },
+
   getDotsxPath(domain: Domain, symlinkPath: string, dotsxDirPath: string): string {
     const fileName = path.basename(symlinkPath);
     return path.resolve(dotsxDirPath, domain.name, fileName);
@@ -47,6 +51,7 @@ export const DotsxInfoLib = {
     const isOsInitialized = this.getInitializedOs() !== null;
     const isTerminalInitialized = this.getInitializedTerminal() !== null;
     const isIdeInitialized = this.getInitializedIde() !== null;
+    const hasBackups = this.hasBackups();
 
     return {
       isInitialized,
@@ -54,6 +59,8 @@ export const DotsxInfoLib = {
       isOsInitialized,
       isTerminalInitialized,
       isIdeInitialized,
+      hasBackups,
+      isAllInitialized: isBinInitialized && isOsInitialized && isTerminalInitialized && isIdeInitialized,
     };
   },
 };
@@ -140,23 +147,12 @@ export const SystemLib = {
   },
 
   getSystemInfo(): SystemInfo {
-    const osInfo = this.getOsInfo();
-
-    const totalMem = (os.totalmem() / 1024 / 1024 / 1024).toFixed(1);
-    const freeMem = (os.freemem() / 1024 / 1024 / 1024).toFixed(1);
-    const usedMem = (Number(totalMem) - Number(freeMem)).toFixed(1);
-    const memPercent = Math.round((Number(usedMem) / Number(totalMem)) * 100);
-
-    const shell = this.detectShell();
-    const rcFile = this.getRcFilePath();
-
     return {
-      ...osInfo,
+      ...this.getOsInfo(),
       arch: os.arch(),
       hostname: os.hostname(),
-      memory: `${usedMem}/${totalMem} GB (${memPercent}%)`,
-      shell,
-      rcFile: rcFile ?? 'unknown',
+      shell: this.detectShell(),
+      rcFile: this.getRcFilePath() ?? 'unknown',
     };
   },
 };

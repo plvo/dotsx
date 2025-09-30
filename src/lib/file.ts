@@ -187,26 +187,6 @@ export const FileLib = {
     }
   },
 
-  backupPath(src: string) {
-    const formattedTimestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 17);
-
-    const dest = `${src}.dotsx.${formattedTimestamp}.backup`;
-
-    if (this.isSymLink(src)) {
-      // If it's a symlink, backup the target content
-      const realPath = this.getFileSymlinkPath(src);
-      const resolvedPath = path.resolve(path.dirname(src), realPath);
-
-      this.backupPath(resolvedPath);
-
-      fs.unlinkSync(src); // Remove the symlink
-    } else if (this.isDirectory(src)) {
-      this.copyDirectory(src, dest);
-    } else if (this.isFile(src)) {
-      this.copyFile(src, dest);
-    }
-  },
-
   /**
    * Creates a safe symlink with backup.
    * REVERSE MODE: System file points to dotsx (content stored in dotsx, Git tracks it)

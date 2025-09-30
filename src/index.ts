@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { intro, log, select } from '@clack/prompts';
+import { intro, select } from '@clack/prompts';
 import { binCommand } from './commands/bin';
 import { gitCommand } from './commands/git';
 import { gitInitCommand } from './commands/git-init';
@@ -8,10 +8,10 @@ import { initCommand } from './commands/init';
 import { linkCommand } from './commands/link';
 import { packageCommand } from './commands/package';
 import { recoverCommand } from './commands/recover';
+import { repairCommand } from './commands/repair';
 import { ConsoleLib } from './lib/console';
-import { BACKUP_PATH, DOTSX } from './lib/constants';
+import { DOTSX } from './lib/constants';
 import { createDomainCommand } from './lib/domain-factory';
-import { FileLib } from './lib/file';
 import { DotsxInfoLib, SystemLib } from './lib/system';
 
 const ideCommand = createDomainCommand({
@@ -34,17 +34,17 @@ async function main() {
   const osInfo = SystemLib.getOsInfo();
   await ConsoleLib.displayInfo();
 
-  const isInitialized = DotsxInfoLib.isInitialized();
+  const {
+    isInitialized,
+    isAllInitialized,
+    hasBackups,
+    isBinInitialized,
+    isIdeInitialized,
+    isOsInitialized,
+    isTerminalInitialized,
+  } = DotsxInfoLib.getDotsxState();
 
   if (!isInitialized) {
-    // Check if backups exist
-    const hasBackups = FileLib.isDirectory(BACKUP_PATH) && FileLib.readDirectory(BACKUP_PATH).length > 0;
-
-    if (hasBackups) {
-      log.warn('⚠️  Backups detected in ~/.backup.dotsx');
-      log.info('You can recover your previous configuration');
-    }
-
     const options = [
       {
         value: 'scratch',
@@ -79,29 +79,44 @@ async function main() {
       await recoverCommand.execute();
     }
   } else {
-    const action = await select({
-      message: 'Welcome!',
-      options: [
-        { value: 'link', label: '📋 Symlinks', hint: 'Create symlinks for files and directories' },
-        { value: 'recover', label: '🔄 Recover', hint: 'Restore files from backups' },
-        { value: 'git', label: '🔧 Git', hint: 'Manage Git repository and synchronization' },
-        {
-          value: 'package',
-          label: `📦 ${osInfo.distro || osInfo.family} packages`,
-          hint: 'Install, remove, and manage packages',
-        },
-        { value: 'bin', label: "🚀 Bin's scripts", hint: 'Manage bin scripts and aliases' },
-        { value: 'ide', label: '💻 IDE configs', hint: 'Manage your IDEs settings' },
-        { value: 'terminal', label: '🖥️  Terminal configs', hint: 'Manage your terminal configurations' },
-      ],
-    });
+    const options = [
+      { value: 'link', label: '📋 Symlinks', hint: 'Create symlinks for files and directories' },
+      { value: 'git', label: '🔧 Git', hint: 'Manage Git repository and synchronization' },
+    ];
 
-    if (action === 'package') {
+    if (!isAllInitialized) {
+      options.push({ value: 'repair', label: '🔄 Repair', hint: 'Repair DotsX configuration' });
+    }
+    if (hasBackups) {
+      options.push({ value: 'recover', label: '🗄️  Recover', hint: 'Restore files from backups' });
+    }
+    if (isOsInitialized) {
+      options.push({
+        value: 'pkg',
+        label: `📦 ${osInfo.distro || osInfo.family} packages`,
+        hint: 'Install, remove, and manage packages',
+      });
+    }
+    if (isBinInitialized) {
+      options.push({ value: 'bin', label: "🚀 Bin's scripts", hint: 'Manage bin scripts and aliases' });
+    }
+    if (isIdeInitialized) {
+      options.push({ value: 'ide', label: '💻 IDE configs', hint: 'Manage your IDEs settings' });
+    }
+    if (isTerminalInitialized) {
+      options.push({ value: 'terminal', label: '🖥️  Terminal configs', hint: 'Manage your terminal configurations' });
+    }
+
+    const action = await select({ message: 'Welcome!', options });
+
+    if (action === 'pkg') {
       await packageCommand.execute();
     } else if (action === 'link') {
       await linkCommand.execute();
     } else if (action === 'recover') {
       await recoverCommand.execute();
+    } else if (action === 'repair') {
+      await repairCommand.execute();
     } else if (action === 'bin') {
       await binCommand.execute();
     } else if (action === 'terminal') {

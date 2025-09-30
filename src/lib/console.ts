@@ -17,7 +17,6 @@ export const ConsoleLib = {
     const info = SystemLib.getSystemInfo();
     log.info(`${info.hostname} system info:
  🖥️  ${info.distro} ${info.release} (${info.platform} ${info.arch})
- 💾 RAM: ${info.memory} 
  📄 ${info.rcFile} (${info.shell})`);
 
     const dotsxState = DotsxInfoLib.getDotsxState();
