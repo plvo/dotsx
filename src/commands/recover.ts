@@ -44,8 +44,41 @@ export const recoverCommand = {
       return;
     }
 
+    // Ask for recovery strategy
+    const strategy = await select({
+      message: 'How would you like to recover these files?',
+      options: [
+        {
+          value: 'latest',
+          label: '⏱️  Restore all to latest backup',
+          hint: 'Automatically use the most recent version'
+        },
+        {
+          value: 'choose',
+          label: '🎯 Choose specific versions',
+          hint: 'Select exact backup date for each file'
+        },
+      ],
+    });
+
+    if (!strategy) {
+      log.warn('Recovery cancelled');
+      return;
+    }
+
     for (const filePath of selected) {
-      await this.recoverFile(filePath, grouped[filePath] ?? []);
+      const backups = grouped[filePath] ?? [];
+
+      if (strategy === 'latest') {
+        // Automatically use the first backup (already sorted newest first)
+        const latestBackup = backups[0];
+        if (latestBackup) {
+          await this.restoreBackup(filePath, latestBackup);
+        }
+      } else {
+        // Ask user to choose specific backup
+        await this.recoverFile(filePath, backups);
+      }
     }
   },
 
@@ -106,6 +139,37 @@ export const recoverCommand = {
     return grouped;
   },
 
+  async restoreBackup(dotsxRelativePath: string, backup: BackupFile) {
+    try {
+      // Restore to dotsx structure
+      // Example: symlinks/~/.zshrc -> ~/.dotsx/symlinks/~/.zshrc
+      const dotsxPath = path.join(DOTSX_PATH, dotsxRelativePath);
+
+      // Create parent directory
+      FileLib.createDirectory(path.dirname(dotsxPath));
+
+      // Copy backup to dotsx
+      if (FileLib.isFile(backup.backupPath)) {
+        FileLib.copyFile(backup.backupPath, dotsxPath);
+      } else if (FileLib.isDirectory(backup.backupPath)) {
+        FileLib.copyDirectory(backup.backupPath, dotsxPath);
+      }
+
+      // Format timestamp for display
+      const year = backup.timestamp.slice(0, 4);
+      const month = backup.timestamp.slice(4, 6);
+      const day = backup.timestamp.slice(6, 8);
+      const hour = backup.timestamp.slice(8, 10);
+      const minute = backup.timestamp.slice(10, 12);
+      const second = backup.timestamp.slice(12, 14);
+      const dateStr = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+
+      log.success(`Recovered ${dotsxRelativePath} from ${dateStr}`);
+    } catch (error) {
+      log.error(`Failed to recover: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
   async recoverFile(dotsxRelativePath: string, backups: BackupFile[]) {
     const options = backups.map((backup) => {
       const year = backup.timestamp.slice(0, 4);
@@ -125,7 +189,7 @@ export const recoverCommand = {
     });
 
     const selectedBackup = await select({
-      message: 'Choose backup to restore:',
+      message: `Choose backup to restore for ${dotsxRelativePath}:`,
       options,
     });
 
@@ -134,24 +198,9 @@ export const recoverCommand = {
       return;
     }
 
-    try {
-      // Restore to dotsx structure
-      // Example: symlinks/~/.zshrc -> ~/.dotsx/symlinks/~/.zshrc
-      const dotsxPath = path.join(DOTSX_PATH, dotsxRelativePath);
-
-      // Create parent directory
-      FileLib.createDirectory(path.dirname(dotsxPath));
-
-      // Copy backup to dotsx
-      if (FileLib.isFile(selectedBackup)) {
-        FileLib.copyFile(selectedBackup, dotsxPath);
-      } else if (FileLib.isDirectory(selectedBackup)) {
-        FileLib.copyDirectory(selectedBackup, dotsxPath);
-      }
-
-      log.success(`Recovered to dotsx: ${dotsxRelativePath}`);
-    } catch (error) {
-      log.error(`Failed to recover: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    const backup = backups.find((b) => b.backupPath === selectedBackup);
+    if (backup) {
+      await this.restoreBackup(dotsxRelativePath, backup);
     }
   },
 };

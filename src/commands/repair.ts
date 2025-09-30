@@ -1,7 +1,8 @@
 import { log } from '@clack/prompts';
 import { BACKUP_PATH, DOTSX } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
-import { DotsxInfoLib } from '@/lib/system';
+import { DotsxInfoLib, SystemLib } from '@/lib/system';
+import { initCommand } from './init';
 
 export const repairCommand = {
   async execute() {
@@ -32,27 +33,25 @@ export const repairCommand = {
       FileLib.createDirectory(DOTSX.IDE.BACKUP);
       FileLib.createDirectory(DOTSX.TERMINAL.BACKUP);
 
-      log.step(`Backup directory created (${BACKUP_PATH})`);
+      log.step(`Backup directory configured (${BACKUP_PATH})`);
     }
 
     if (!isOsInitialized) {
-      FileLib.createDirectory(DOTSX.OS.PATH);
-      log.step(`OS directory created (${DOTSX.OS.PATH})`);
+      initCommand.initOs(SystemLib.getOsInfo());
     }
 
     if (!isBinInitialized) {
-      FileLib.createDirectory(DOTSX.BIN.PATH);
-      log.step(`Bin directory created (${DOTSX.BIN.PATH})`);
+      initCommand.initBin();
     }
 
     if (!isIdeInitialized) {
       FileLib.createDirectory(DOTSX.IDE.PATH);
-      log.step(`IDE directory created (${DOTSX.IDE.PATH})`);
+      log.step(`IDE directory configured (${DOTSX.IDE.PATH})`);
     }
 
     if (!isTerminalInitialized) {
       FileLib.createDirectory(DOTSX.TERMINAL.PATH);
-      log.step(`Terminal directory created (${DOTSX.TERMINAL.PATH})`);
+      log.step(`Terminal directory configured (${DOTSX.TERMINAL.PATH})`);
     }
   },
 };

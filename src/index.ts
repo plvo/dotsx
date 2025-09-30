@@ -5,7 +5,7 @@ import { binCommand } from './commands/bin';
 import { gitCommand } from './commands/git';
 import { gitInitCommand } from './commands/git-init';
 import { initCommand } from './commands/init';
-import { packageCommand } from './commands/package';
+import { packageCommand } from './commands/os';
 import { recoverCommand } from './commands/recover';
 import { repairCommand } from './commands/repair';
 import { symlinkCommand } from './commands/symlink';
