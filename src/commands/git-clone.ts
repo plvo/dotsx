@@ -1,4 +1,4 @@
-import { confirm, log, spinner, text } from '@clack/prompts';
+import { log, spinner, text } from '@clack/prompts';
 import { DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { GitLib } from '@/lib/git';
@@ -33,18 +33,20 @@ export const gitCloneCommand: CliCommand = {
     }
 
     const repoUrl = await text({
-      message: 'Enter the Git repository URL:',
-      placeholder: 'https://github.com/username/dotsx-config.git',
+      message: 'Enter the SSH repository URL:',
+      placeholder: 'git@github.com:username/dotsx-config.git',
       validate: (value) => {
         if (!value) return 'Repository URL is required';
-        if (!GitLib.validateGitUrl(value)) {
-          return 'Please enter a valid Git repository URL';
+        try {
+          GitLib.validateGitUrlOrThrow(value);
+          return undefined;
+        } catch (error) {
+          return error instanceof Error ? error.message : 'Invalid URL';
         }
-        return undefined;
       },
     });
 
-    if (!repoUrl) {
+    if (!repoUrl || typeof repoUrl !== 'string') {
       log.warn('Initialization cancelled.');
       return;
     }
@@ -56,6 +58,7 @@ export const gitCloneCommand: CliCommand = {
       await GitLib.cloneRepository(repoUrl, DOTSX_PATH);
       s.stop('Repository cloned successfully');
 
+      // Validate structure
       const validation = GitLib.validateDotsxStructure(DOTSX_PATH);
 
       if (validation.isValid) {
@@ -64,33 +67,7 @@ export const gitCloneCommand: CliCommand = {
       } else {
         log.warn('⚠️  Repository structure is incomplete');
         log.info(validation.message);
-
-        const shouldCreateMissing = await confirm({
-          message: 'Would you like to create the missing directories?',
-          initialValue: true,
-        });
-
-        if (shouldCreateMissing) {
-          for (const dir of validation.missingDirectories) {
-            const dirPath = `${DOTSX_PATH}/${dir}`;
-            FileLib.createDirectoryRecursive(dirPath);
-            log.info(`Created directory: ${dir}`);
-          }
-
-          const shouldCommit = await confirm({
-            message: 'Commit the created directories to the repository?',
-            initialValue: true,
-          });
-
-          if (shouldCommit) {
-            try {
-              await GitLib.addAndCommit(DOTSX_PATH, 'feat: add missing DotsX directories');
-              log.success('Changes committed successfully');
-            } catch (error) {
-              log.warn(`Failed to commit changes: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            }
-          }
-        }
+        log.info('💡 Run: dotsx repair');
       }
 
       const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
