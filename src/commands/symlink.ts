@@ -4,7 +4,7 @@ import { DOTSX } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import type { AllLinks, Link } from '@/types';
 
-export const linkCommand = {
+export const symlinkCommand = {
   async execute() {
     const allLinks = await this.checkStatus();
 

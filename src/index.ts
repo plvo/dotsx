@@ -5,10 +5,10 @@ import { binCommand } from './commands/bin';
 import { gitCommand } from './commands/git';
 import { gitInitCommand } from './commands/git-init';
 import { initCommand } from './commands/init';
-import { linkCommand } from './commands/link';
 import { packageCommand } from './commands/package';
 import { recoverCommand } from './commands/recover';
 import { repairCommand } from './commands/repair';
+import { symlinkCommand } from './commands/symlink';
 import { ConsoleLib } from './lib/console';
 import { DOTSX } from './lib/constants';
 import { createDomainCommand } from './lib/domain-factory';
@@ -80,7 +80,7 @@ async function main() {
     }
   } else {
     const options = [
-      { value: 'link', label: '📋 Symlinks', hint: 'Create symlinks for files and directories' },
+      { value: 'symlink', label: '📋 Symlinks', hint: 'Create symlinks for files and directories' },
       { value: 'git', label: '🔧 Git', hint: 'Manage Git repository and synchronization' },
     ];
 
@@ -111,8 +111,8 @@ async function main() {
 
     if (action === 'pkg') {
       await packageCommand.execute();
-    } else if (action === 'link') {
-      await linkCommand.execute();
+    } else if (action === 'symlink') {
+      await symlinkCommand.execute();
     } else if (action === 'recover') {
       await recoverCommand.execute();
     } else if (action === 'repair') {
