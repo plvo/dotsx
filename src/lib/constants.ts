@@ -7,7 +7,7 @@ function getDOTSX_PATH(): string {
 
 export const DOTSX_PATH: string = getDOTSX_PATH();
 export const BACKUP_PATH: string = path.resolve(process.env.HOME || os.homedir(), '.backup.dotsx');
-export const MAX_BACKUPS_PER_FILE = 5;
+export const MAX_BACKUPS_PER_FILE = 7;
 
 export const DOTSX = {
   SYMLINKS: path.resolve(DOTSX_PATH, 'symlinks'),

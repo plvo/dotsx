@@ -17,10 +17,7 @@ export const ConsoleLib = {
   },
 
   logListWithTitle(title: string, list: string[]) {
-    console.log(`\n${title} (${list.length}):`);
-    list.forEach((item) => {
-      console.log(` ${item}`);
-    });
+    log.step(`${title} (${list.length}):\n${list.join('\n')}`);
   },
 
   async displayInfo() {

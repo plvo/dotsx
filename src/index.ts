@@ -2,6 +2,7 @@
 
 import { intro, select } from '@clack/prompts';
 import { binCommand } from './commands/bin';
+import { doctorCommand } from './commands/doctor';
 import { gitCommand } from './commands/git';
 import { gitCloneCommand } from './commands/git-clone';
 import { initCommand } from './commands/init';
@@ -82,6 +83,7 @@ async function main() {
     const options = [
       { value: 'symlink', label: '📋 Symlinks', hint: 'Create symlinks for files and directories' },
       { value: 'git', label: '🔧 Git', hint: 'Manage Git repository and synchronization' },
+      { value: 'doctor', label: '🩺 Doctor', hint: 'Run full diagnostics and show all configurations' },
     ];
 
     if (!isAllInitialized) {
@@ -109,23 +111,15 @@ async function main() {
 
     const action = await select({ message: 'Welcome!', options });
 
-    if (action === 'pkg') {
-      await packageCommand.execute();
-    } else if (action === 'symlink') {
-      await symlinkCommand.execute();
-    } else if (action === 'recover') {
-      await recoverCommand.execute();
-    } else if (action === 'repair') {
-      await repairCommand.execute();
-    } else if (action === 'bin') {
-      await binCommand.execute();
-    } else if (action === 'terminal') {
-      await terminalCommand.execute();
-    } else if (action === 'ide') {
-      await ideCommand.execute();
-    } else if (action === 'git') {
-      await gitCommand.execute();
-    }
+    if (action === 'doctor') await doctorCommand.execute();
+    else if (action === 'pkg') await packageCommand.execute();
+    else if (action === 'symlink') await symlinkCommand.execute();
+    else if (action === 'recover') await recoverCommand.execute();
+    else if (action === 'repair') await repairCommand.execute();
+    else if (action === 'bin') await binCommand.execute();
+    else if (action === 'terminal') await terminalCommand.execute();
+    else if (action === 'ide') await ideCommand.execute();
+    else if (action === 'git') await gitCommand.execute();
   }
 }
 
