@@ -156,25 +156,43 @@ export const FileLib = {
 
   /**
    * Expand a path to an absolute path
+   * Supports both ~ and __home__ notation
    * @example ~/workspace -> /home/user/workspaces
-   * /home/user/workspace -> /home/user/workspace
+   * @example __home__/workspace -> /home/user/workspaces
+   * @example /home/user/workspace -> /home/user/workspace
    */
   expandPath(inputPath: string): string {
-    return inputPath.startsWith('~/') ? path.resolve(homedir(), inputPath.slice(2)) : inputPath;
+    if (inputPath.startsWith('~/')) {
+      return path.resolve(homedir(), inputPath.slice(2));
+    }
+    if (inputPath.startsWith('__home__/')) {
+      return path.resolve(homedir(), inputPath.slice(9));
+    }
+    if (inputPath === '__home__') {
+      return homedir();
+    }
+    return inputPath;
   },
 
   getFileSymlinkPath(inputPath: string): string {
     return fs.readlinkSync(path.resolve(inputPath));
   },
 
+  /**
+   * Convert absolute path to __home__ notation for storage
+   * @example /home/user/workspace -> __home__/workspace
+   * @example /etc/config -> /etc/config
+   */
   getDisplayPath(inputPath: string): string {
-    return inputPath.replace(homedir(), '~');
+    return inputPath.replace(homedir(), '__home__');
   },
 
-  cleanupOldBackups(dotsxRelativePath: string, maxBackups: number = MAX_BACKUPS_PER_FILE) {
+  /**
+   * Cleanup old backups for a given dotsxRelativePath,
+   * it will delete backups beyond the limit
+   */
+  cleanupOldBackups(dotsxRelativePath: string, maxBackups: number = MAX_BACKUPS_PER_FILE): void {
     try {
-      // Find all backups for this file
-      // Pattern: symlinks/~/.zshrc.TIMESTAMP.dotsx.backup
       const backupDir = path.dirname(path.join(BACKUP_PATH, dotsxRelativePath));
       const fileName = path.basename(dotsxRelativePath);
 
@@ -182,11 +200,9 @@ export const FileLib = {
         return;
       }
 
-      // Find all backup files matching the pattern
       const allFiles = this.readDirectory(backupDir);
       const backupFiles = allFiles
         .filter((file) => {
-          // Match: filename.TIMESTAMP.dotsx.backup
           const pattern = new RegExp(`^${fileName}\\.\\d{14}\\.dotsx\\.backup$`);
           return pattern.test(file);
         })
@@ -223,7 +239,6 @@ export const FileLib = {
     const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
 
     // Mirror dotsx structure in backup
-    // ~/.dotsx/symlinks/~/.zshrc -> ~/.backup.dotsx/symlinks/~/.zshrc.TIMESTAMP.backup
     const backupPath = path.join(BACKUP_PATH, `${dotsxRelativePath}.${timestamp}.dotsx.backup`);
 
     this.createDirectory(path.dirname(backupPath));
@@ -240,9 +255,8 @@ export const FileLib = {
 
   /**
    * Creates a safe symlink with backup.
-   * REVERSE MODE: System file points to dotsx (content stored in dotsx, Git tracks it)
-   * @param systemPath - System file path (e.g., ~/.zshrc)
-   * @param dotsxPath - DotsX content path (e.g., ~/.dotsx/symlinks/~/.zshrc)
+   * @param systemPath - System file path (e.g., /home/user/.zshrc)
+   * @param dotsxPath - DotsX content path (e.g., /home/user/.dotsx/symlinks/__home__/.zshrc)
    */
   safeSymlink(systemPath: string, dotsxPath: string) {
     if (!this.isPathExists(systemPath)) {
@@ -255,28 +269,22 @@ export const FileLib = {
       return;
     }
 
-    // Get relative path from DOTSX_PATH for backup mirroring
-    // Example: /home/plv/.dotsx/symlinks/~/.zshrc -> symlinks/~/.zshrc
     const dotsxRelativePath = path.relative(DOTSX_PATH, dotsxPath);
 
     let sourceToBackup = systemPath;
     let sourceToMove = systemPath;
 
-    // Handle case where systemPath is an existing symlink (but pointing to wrong place)
     if (this.isSymLink(systemPath)) {
       try {
-        // Resolve the symlink to get the actual target
         const symlinkTarget = fs.readlinkSync(systemPath);
         const resolvedPath = path.resolve(path.dirname(systemPath), symlinkTarget);
 
-        // If the resolved path exists and has content, use it for backup
         if (this.isPathExists(resolvedPath)) {
           sourceToBackup = resolvedPath;
           sourceToMove = resolvedPath;
           log.info(`Following symlink to actual content: ${this.getDisplayPath(resolvedPath)}`);
         }
 
-        // Delete the old symlink first
         fs.unlinkSync(systemPath);
       } catch (error) {
         log.warning(`Could not resolve symlink ${this.getDisplayPath(systemPath)}: ${error}`);

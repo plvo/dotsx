@@ -1,10 +1,11 @@
 import path from 'node:path';
 import { log, multiselect, select } from '@clack/prompts';
+import { ConsoleLib } from '@/lib/console';
 import { BACKUP_PATH, DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 
 interface BackupFile {
-  dotsxRelativePath: string; // e.g., "symlinks/~/.zshrc"
+  dotsxRelativePath: string;
   timestamp: string;
   backupPath: string;
 }
@@ -29,7 +30,7 @@ export const recoverCommand = {
 
     const options = filePaths.map((filePath) => ({
       value: filePath,
-      label: filePath, // Show dotsx relative path like "symlinks/~/.zshrc"
+      label: filePath,
       hint: `${grouped[filePath]?.length} backup(s) available`,
     }));
 
@@ -51,12 +52,12 @@ export const recoverCommand = {
         {
           value: 'latest',
           label: '⏱️  Restore all to latest backup',
-          hint: 'Automatically use the most recent version'
+          hint: 'Automatically use the most recent version',
         },
         {
           value: 'choose',
           label: '🎯 Choose specific versions',
-          hint: 'Select exact backup date for each file'
+          hint: 'Select exact backup date for each file',
         },
       ],
     });
@@ -70,13 +71,11 @@ export const recoverCommand = {
       const backups = grouped[filePath] ?? [];
 
       if (strategy === 'latest') {
-        // Automatically use the first backup (already sorted newest first)
         const latestBackup = backups[0];
         if (latestBackup) {
           await this.restoreBackup(filePath, latestBackup);
         }
       } else {
-        // Ask user to choose specific backup
         await this.recoverFile(filePath, backups);
       }
     }
@@ -94,12 +93,11 @@ export const recoverCommand = {
         if (FileLib.isDirectory(fullPath)) {
           scan(fullPath, baseDir);
         } else if (item.endsWith('.dotsx.backup')) {
-          // Parse filename: symlinks/~/.zshrc.20250930120000.dotsx.backup
           const relativePath = path.relative(baseDir, fullPath);
           const match = relativePath.match(/^(.+)\.(\d{14})\.dotsx\.backup$/);
 
           if (match) {
-            const dotsxRelativePath = match[1]; // e.g., "symlinks/~/.zshrc"
+            const dotsxRelativePath = match[1];
             const timestamp = match[2];
 
             if (!dotsxRelativePath || !timestamp) {
@@ -107,11 +105,7 @@ export const recoverCommand = {
               continue;
             }
 
-            results.push({
-              dotsxRelativePath,
-              timestamp,
-              backupPath: fullPath,
-            });
+            results.push({ dotsxRelativePath, timestamp, backupPath: fullPath });
           }
         }
       }
@@ -142,7 +136,6 @@ export const recoverCommand = {
   async restoreBackup(dotsxRelativePath: string, backup: BackupFile) {
     try {
       // Restore to dotsx structure
-      // Example: symlinks/~/.zshrc -> ~/.dotsx/symlinks/~/.zshrc
       const dotsxPath = path.join(DOTSX_PATH, dotsxRelativePath);
 
       // Create parent directory
@@ -155,14 +148,7 @@ export const recoverCommand = {
         FileLib.copyDirectory(backup.backupPath, dotsxPath);
       }
 
-      // Format timestamp for display
-      const year = backup.timestamp.slice(0, 4);
-      const month = backup.timestamp.slice(4, 6);
-      const day = backup.timestamp.slice(6, 8);
-      const hour = backup.timestamp.slice(8, 10);
-      const minute = backup.timestamp.slice(10, 12);
-      const second = backup.timestamp.slice(12, 14);
-      const dateStr = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+      const dateStr = ConsoleLib.getDisplayDate(backup.timestamp);
 
       log.success(`Recovered ${dotsxRelativePath} from ${dateStr}`);
     } catch (error) {
@@ -172,20 +158,9 @@ export const recoverCommand = {
 
   async recoverFile(dotsxRelativePath: string, backups: BackupFile[]) {
     const options = backups.map((backup) => {
-      const year = backup.timestamp.slice(0, 4);
-      const month = backup.timestamp.slice(4, 6);
-      const day = backup.timestamp.slice(6, 8);
-      const hour = backup.timestamp.slice(8, 10);
-      const minute = backup.timestamp.slice(10, 12);
-      const second = backup.timestamp.slice(12, 14);
+      const dateStr = ConsoleLib.getDisplayDate(backup.timestamp);
 
-      const dateStr = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-
-      return {
-        value: backup.backupPath,
-        label: dateStr,
-        hint: FileLib.getDisplayPath(backup.backupPath),
-      };
+      return { value: backup.backupPath, label: dateStr, hint: backup.backupPath };
     });
 
     const selectedBackup = await select({

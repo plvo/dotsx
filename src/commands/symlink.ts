@@ -113,13 +113,17 @@ export const symlinkCommand = {
 
   getDotsxPath(systemPath: string): string {
     const displayPath = FileLib.getDisplayPath(systemPath);
-    if (displayPath.startsWith('~')) {
+    if (displayPath.startsWith('__home__')) {
       return resolve(DOTSX.SYMLINKS, displayPath);
     }
     return resolve(DOTSX.SYMLINKS, systemPath.startsWith('/') ? systemPath.slice(1) : systemPath);
   },
 
   getTargetPath(relativePath: string): string {
+    if (relativePath.startsWith('__home__/')) {
+      return FileLib.expandPath(relativePath);
+    }
+    // Legacy support for ~ notation
     if (relativePath.startsWith('~/')) {
       return FileLib.expandPath(relativePath);
     }
