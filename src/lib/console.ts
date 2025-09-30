@@ -1,6 +1,8 @@
 import { log } from '@clack/prompts';
 import type { ConfigStatusInfo, Domain, Family, OsInfo } from '@/types';
+import { DOTSX_PATH } from './constants';
 import { FileLib } from './file';
+import { GitLib } from './git';
 import { DotsxInfoLib, SystemLib } from './system';
 
 export const ConsoleLib = {
@@ -11,7 +13,7 @@ export const ConsoleLib = {
     });
   },
 
-  displayInfo() {
+  async displayInfo() {
     const info = SystemLib.getSystemInfo();
     log.info(`${info.hostname} system info:
  🖥️  ${info.distro} ${info.release} (${info.platform} ${info.arch})
@@ -24,8 +26,43 @@ export const ConsoleLib = {
       log.info(
         `${dotsxState.isBinInitialized ? '✅' : '❌'} Bin ${dotsxState.isIdeInitialized ? '✅' : '❌'} IDE ${dotsxState.isOsInitialized ? '✅' : '❌'} OS ${dotsxState.isTerminalInitialized ? '✅' : '❌'} Terminal`,
       );
+
+      await this.displayGitInfo();
     } else {
       log.error('DotsX (Not configured)');
+    }
+  },
+
+  async displayGitInfo() {
+    try {
+      const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
+
+      if (!gitInfo.isRepository) {
+        log.info('📦 Git: Not initialized');
+        return;
+      }
+
+      let gitStatus = `📁 ${gitInfo.remoteUrl} (🌿 ${gitInfo.currentBranch})
+📝 Last commit: "${gitInfo.lastCommit?.message ?? 'Unknown'}" ${gitInfo.lastCommit?.hash ?? 'Unknown hash'} (${gitInfo.lastCommit?.date ?? 'Unknown date'})
+`;
+
+      if (gitInfo.status) {
+        const { ahead, behind, hasUncommittedChanges } = gitInfo.status;
+
+        if (ahead === 0 && behind === 0 && !hasUncommittedChanges) {
+          gitStatus += '✅ up-to-date';
+        } else {
+          const statusParts = [];
+          if (ahead > 0) statusParts.push(`📤 ${ahead} ahead`);
+          if (behind > 0) statusParts.push(`📥 ${behind} behind`);
+          if (hasUncommittedChanges) statusParts.push('⚠️  uncommitted changes');
+          gitStatus += `🔄 ${statusParts.join(', ')}`;
+        }
+      }
+
+      log.info(gitStatus);
+    } catch (_error) {
+      log.info('📦 Git: Error reading repository info');
     }
   },
 
