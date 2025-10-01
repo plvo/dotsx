@@ -1,6 +1,6 @@
 import { confirm, log, select, spinner, text } from '@clack/prompts';
-import { DOTSX_PATH } from '@/lib/constants';
 import { GitLib } from '@/lib/git';
+import { DOTSX_PATH } from '@/old/constants';
 import { gitCloneCommand } from './git-clone';
 import { symlinkCommand } from './symlink';
 

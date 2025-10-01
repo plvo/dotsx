@@ -1,8 +1,8 @@
 import { resolve } from 'node:path';
 import { confirm, log } from '@clack/prompts';
-import { DOTSX } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { SystemLib } from '@/lib/system';
+import { DOTSX } from '@/old/constants';
 
 export const binCommand = {
   async execute() {

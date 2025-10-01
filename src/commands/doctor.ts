@@ -1,10 +1,10 @@
 import { confirm, log, outro } from '@clack/prompts';
-import { allDomains, getDomainByDistro, getDomainByName } from '@/domains';
 import { ConsoleLib } from '@/lib/console';
-import { DOTSX, DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { GitLib } from '@/lib/git';
 import { SystemLib } from '@/lib/system';
+import { allDomains, getDomainByDistro, getDomainByName } from '@/old';
+import { DOTSX, DOTSX_PATH } from '@/old/constants';
 import type { Domain } from '@/types';
 import { symlinkCommand } from './symlink';
 

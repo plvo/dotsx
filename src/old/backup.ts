@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { log, spinner } from '@clack/prompts';
-import { BACKUP_METADATA_PATH, BACKUP_PATH, DOTSX, DOTSX_PATH, MAX_BACKUPS_PER_FILE } from './constants';
-import { FileLib } from './file';
+import { log } from '@clack/prompts';
+import { FileLib } from '../lib/file';
+import { BACKUP_METADATA_PATH, BACKUP_PATH, MAX_BACKUPS_PER_FILE } from './constants';
 
 /**
  * Backup metadata structure
@@ -311,9 +311,7 @@ export const BackupLib = {
               if (resolvedTarget === dotsxPath) {
                 return systemPath;
               }
-            } catch {
-              continue;
-            }
+            } catch {}
           }
         }
       }

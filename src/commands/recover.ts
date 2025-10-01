@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { log, multiselect, select } from '@clack/prompts';
 import { ConsoleLib } from '@/lib/console';
-import { BACKUP_PATH, DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
+import { BACKUP_PATH, DOTSX_PATH } from '@/old/constants';
 
 interface BackupFile {
   dotsxRelativePath: string;

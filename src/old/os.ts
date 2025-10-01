@@ -1,4 +1,4 @@
-import { DOTSX } from '@/lib/constants';
+import { DOTSX } from '@/old/constants';
 import type { Domain } from '@/types';
 
 const defaultPackageManagersContent = (name: string) => {

@@ -1,7 +1,7 @@
-import type { Domain } from '@/types';
 import * as ide from './ide';
 import * as os from './os';
 import * as terminal from './terminal';
+import type { Domain } from './types';
 
 export const allDomains: Domain[] = [...Object.values(os), ...Object.values(ide), ...Object.values(terminal)].filter(
   (d): d is Domain => typeof d === 'object' && d !== null && 'type' in d && 'name' in d,

@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { confirm, log, outro, select, text } from '@clack/prompts';
-import { DOTSX } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
+import { DOTSX } from '@/old/constants';
 import type { AllLinks, Link } from '@/types';
 
 export const symlinkCommand = {

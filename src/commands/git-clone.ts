@@ -1,7 +1,7 @@
 import { log, spinner, text } from '@clack/prompts';
-import { DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { GitLib } from '@/lib/git';
+import { DOTSX_PATH } from '@/old/constants';
 import type { CliCommand } from '@/types';
 
 export const gitCloneCommand: CliCommand = {

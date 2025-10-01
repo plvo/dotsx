@@ -1,0 +1,72 @@
+import os from 'node:os';
+import path from 'node:path';
+
+function getDOTSX_PATH(): string {
+  return process.env.DOTSX_PATH || path.resolve(process.env.HOME || os.homedir(), '.dotsx');
+}
+
+export const DOTSX_PATH: string = getDOTSX_PATH();
+export const BACKUP_PATH: string = path.resolve(process.env.HOME || os.homedir(), '.backup.dotsx');
+export const BACKUP_METADATA_PATH: string = path.resolve(BACKUP_PATH, '.last-backup.json');
+export const MAX_BACKUPS_PER_FILE = 7;
+
+export const DOTSX = {
+  SYMLINKS: path.resolve(DOTSX_PATH, 'symlinks'),
+
+  BIN: {
+    PATH: path.resolve(DOTSX_PATH, 'bin'),
+    BACKUP: path.resolve(BACKUP_PATH, 'bin'),
+    ALIAS: path.resolve(DOTSX_PATH, 'bin', '_dotsx-bin.aliases') satisfies string,
+  },
+  IDE: {
+    PATH: path.resolve(DOTSX_PATH, 'ide'),
+    BACKUP: path.resolve(BACKUP_PATH, 'ide'),
+    CURSOR: path.resolve(DOTSX_PATH, 'ide', 'cursor'),
+    VSCODE: path.resolve(DOTSX_PATH, 'ide', 'vscode'),
+  },
+  OS: {
+    PATH: path.resolve(DOTSX_PATH, 'os'),
+    BACKUP: path.resolve(BACKUP_PATH, 'os'),
+    DEBIAN: {
+      PATH: path.resolve(DOTSX_PATH, 'os', 'debian'),
+      BACKUP: path.resolve(BACKUP_PATH, 'os', 'debian'),
+      APT: path.resolve(DOTSX_PATH, 'os', 'debian', 'apt.txt') satisfies string,
+      SNAP: path.resolve(DOTSX_PATH, 'os', 'debian', 'snap.txt') satisfies string,
+      FLATPAK: path.resolve(DOTSX_PATH, 'os', 'debian', 'flatpak.txt') satisfies string,
+    },
+    FEDORA: {
+      PATH: path.resolve(DOTSX_PATH, 'os', 'fedora'),
+      BACKUP: path.resolve(BACKUP_PATH, 'os', 'fedora'),
+      DNF: path.resolve(DOTSX_PATH, 'os', 'fedora', 'dnf.txt') satisfies string,
+    },
+    ARCH: {
+      PATH: path.resolve(DOTSX_PATH, 'os', 'arch'),
+      BACKUP: path.resolve(BACKUP_PATH, 'os', 'arch'),
+      PACMAN: path.resolve(DOTSX_PATH, 'os', 'arch', 'pacman.txt') satisfies string,
+      YAY: path.resolve(DOTSX_PATH, 'os', 'arch', 'yay.txt') satisfies string,
+    },
+    ALPINE: {
+      PATH: path.resolve(DOTSX_PATH, 'os', 'alpine'),
+      BACKUP: path.resolve(BACKUP_PATH, 'os', 'alpine'),
+      APK: path.resolve(DOTSX_PATH, 'os', 'alpine', 'apk.txt') satisfies string,
+    },
+    SUSE: {
+      PATH: path.resolve(DOTSX_PATH, 'os', 'suse'),
+      BACKUP: path.resolve(BACKUP_PATH, 'os', 'suse'),
+      ZYPPER: path.resolve(DOTSX_PATH, 'os', 'suse', 'zypper.txt') satisfies string,
+    },
+    MACOS: {
+      PATH: path.resolve(DOTSX_PATH, 'os', 'macos'),
+      BACKUP: path.resolve(BACKUP_PATH, 'os', 'macos'),
+      BREW: path.resolve(DOTSX_PATH, 'os', 'macos', 'brew.txt') satisfies string,
+    },
+  },
+
+  TERMINAL: {
+    PATH: path.resolve(DOTSX_PATH, 'terminal'),
+    BACKUP: path.resolve(BACKUP_PATH, 'terminal'),
+    ZSH: path.resolve(DOTSX_PATH, 'terminal', 'zsh'),
+    BASH: path.resolve(DOTSX_PATH, 'terminal', 'bash'),
+    TMUX: path.resolve(DOTSX_PATH, 'terminal', 'tmux'),
+  },
+} as const;

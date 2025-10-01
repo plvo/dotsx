@@ -2,7 +2,7 @@ import { exec } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { GitInfo, GitValidationResult } from '@/types';
-import { DOTSX, DOTSX_PATH } from './constants';
+import { DOTSX, DOTSX_PATH } from '../old/constants';
 import { FileLib } from './file';
 
 const execAsync = promisify(exec);

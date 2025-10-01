@@ -1,9 +1,9 @@
 import { resolve } from 'node:path';
 import { log, multiselect, type Option } from '@clack/prompts';
-import { getDomainByDistro, getDomainByName, getDomainsByType } from '@/domains';
-import { DOTSX, DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { DotsxInfoLib, SystemLib } from '@/lib/system';
+import { getDomainByDistro, getDomainByName, getDomainsByType } from '@/old';
+import { DOTSX, DOTSX_PATH } from '@/old/constants';
 import type { Domain, Family, OsInfo } from '@/types';
 
 export const initCommand = {
