@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { log } from '@clack/prompts';
-import { BACKUP_PATH, DOTSX_PATH, MAX_BACKUPS_PER_FILE } from './constants';
+import { BackupLib } from './backup';
+import { DOTSX_PATH } from './constants';
 
 export const FileLib = {
   isPathExists(path: string) {
@@ -188,72 +189,6 @@ export const FileLib = {
   },
 
   /**
-   * Cleanup old backups for a given dotsxRelativePath,
-   * it will delete backups beyond the limit
-   */
-  cleanupOldBackups(dotsxRelativePath: string, maxBackups: number = MAX_BACKUPS_PER_FILE): void {
-    try {
-      const backupDir = path.dirname(path.join(BACKUP_PATH, dotsxRelativePath));
-      const fileName = path.basename(dotsxRelativePath);
-
-      if (!this.isDirectory(backupDir)) {
-        return;
-      }
-
-      const allFiles = this.readDirectory(backupDir);
-      const backupFiles = allFiles
-        .filter((file) => {
-          const pattern = new RegExp(`^${fileName}\\.\\d{14}\\.dotsx\\.backup$`);
-          return pattern.test(file);
-        })
-        .map((file) => ({
-          name: file,
-          fullPath: path.join(backupDir, file),
-          // Extract timestamp for sorting
-          timestamp: file.match(/\.(\d{14})\.dotsx\.backup$/)?.[1] || '',
-        }));
-
-      // Sort by timestamp (newest first)
-      backupFiles.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-
-      // Delete backups beyond the limit
-      const backupsToDelete = backupFiles.slice(maxBackups);
-
-      for (const backup of backupsToDelete) {
-        if (this.isFile(backup.fullPath)) {
-          this.deleteFile(backup.fullPath);
-        } else if (this.isDirectory(backup.fullPath)) {
-          this.deleteDirectory(backup.fullPath);
-        }
-      }
-
-      if (backupsToDelete.length > 0) {
-        log.info(`Cleaned up ${backupsToDelete.length} old backup(s) for ${dotsxRelativePath}`);
-      }
-    } catch (error) {
-      log.warning(`Failed to cleanup old backups: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  },
-
-  createBackup(dotsxRelativePath: string, systemPath: string) {
-    const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
-
-    // Mirror dotsx structure in backup
-    const backupPath = path.join(BACKUP_PATH, `${dotsxRelativePath}.${timestamp}.dotsx.backup`);
-
-    this.createDirectory(path.dirname(backupPath));
-
-    if (this.isFile(systemPath)) {
-      this.copyFile(systemPath, backupPath);
-    } else if (this.isDirectory(systemPath)) {
-      this.copyDirectory(systemPath, backupPath);
-    }
-
-    // Cleanup old backups after creating a new one
-    this.cleanupOldBackups(dotsxRelativePath);
-  },
-
-  /**
    * Creates a safe symlink with backup.
    * @param systemPath - System file path (e.g., /home/user/.zshrc)
    * @param dotsxPath - DotsX content path (e.g., /home/user/.dotsx/symlinks/__home__/.zshrc)
@@ -293,8 +228,12 @@ export const FileLib = {
       }
     }
 
-    // Create backup in ~/.backup.dotsx (mirrors dotsx structure)
-    this.createBackup(dotsxRelativePath, sourceToBackup);
+    // Create daily backup in ~/.backup.dotsx (mirrors dotsx structure)
+    if (BackupLib.shouldCreateBackup(dotsxRelativePath)) {
+      BackupLib.createDailyBackup(dotsxRelativePath, sourceToBackup);
+    } else {
+      log.info(`Backup already created today for ${this.getDisplayPath(systemPath)}`);
+    }
 
     // Create parent directory for dotsx path
     this.createDirectory(path.dirname(dotsxPath));

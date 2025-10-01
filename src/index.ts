@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { intro, select } from '@clack/prompts';
+import { intro, select, spinner } from '@clack/prompts';
 import { binCommand } from './commands/bin';
 import { doctorCommand } from './commands/doctor';
 import { gitCommand } from './commands/git';
@@ -10,6 +10,7 @@ import { packageCommand } from './commands/os';
 import { recoverCommand } from './commands/recover';
 import { repairCommand } from './commands/repair';
 import { symlinkCommand } from './commands/symlink';
+import { BackupLib } from './lib/backup';
 import { ConsoleLib } from './lib/console';
 import { DOTSX } from './lib/constants';
 import { createDomainCommand } from './lib/domain-factory';
@@ -32,8 +33,9 @@ const terminalCommand = createDomainCommand({
 async function main() {
   intro('🚀 DotsX CLI');
 
-  const osInfo = SystemLib.getOsInfo();
-  await ConsoleLib.displayInfo();
+  await ConsoleLib.printSystemInfo();
+  await ConsoleLib.printDotsxState();
+  await ConsoleLib.printGitInfo();
 
   const {
     isInitialized,
@@ -44,6 +46,11 @@ async function main() {
     isOsInitialized,
     isTerminalInitialized,
   } = DotsxInfoLib.getDotsxState();
+
+  // Perform daily backup check if dotsx is initialized
+  if (isInitialized) {
+    await BackupLib.performDailyBackupCheck();
+  }
 
   if (!isInitialized) {
     const options = [
@@ -80,6 +87,8 @@ async function main() {
       await recoverCommand.execute();
     }
   } else {
+    const osInfo = SystemLib.getOsInfo();
+
     const options = [
       { value: 'symlink', label: '📋 Symlinks', hint: 'Create symlinks for files and directories' },
       { value: 'git', label: '🔧 Git', hint: 'Manage Git repository and synchronization' },

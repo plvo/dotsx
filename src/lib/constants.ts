@@ -7,6 +7,7 @@ function getDOTSX_PATH(): string {
 
 export const DOTSX_PATH: string = getDOTSX_PATH();
 export const BACKUP_PATH: string = path.resolve(process.env.HOME || os.homedir(), '.backup.dotsx');
+export const BACKUP_METADATA_PATH: string = path.resolve(BACKUP_PATH, '.last-backup.json');
 export const MAX_BACKUPS_PER_FILE = 7;
 
 export const DOTSX = {
