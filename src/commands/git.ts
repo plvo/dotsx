@@ -1,6 +1,8 @@
 import { confirm, log, select, spinner, text } from '@clack/prompts';
 import { DOTSX_PATH } from '@/lib/constants';
 import { GitLib } from '@/lib/git';
+import { gitCloneCommand } from './git-clone';
+import { symlinkCommand } from './symlink';
 
 export const gitCommand = {
   async execute() {
@@ -13,43 +15,181 @@ export const gitCommand = {
     const isRepo = await GitLib.isGitRepository(DOTSX_PATH);
 
     if (!isRepo) {
-      const shouldInit = await confirm({
-        message: 'DotsX directory is not a Git repository. Initialize Git?',
-        initialValue: true,
+      const choice = await select({
+        message: 'DotsX directory is not a Git repository. How would you like to proceed?',
+        options: [
+          { value: 'new', label: '🆕 Create new repository', hint: 'Initialize a new local Git repository' },
+          {
+            value: 'clone',
+            label: '🔗 Connect to existing repository',
+            hint: 'Clone from an existing remote repository',
+          },
+        ],
       });
 
-      if (!shouldInit) {
-        log.warn('Git management cancelled.');
-        return;
+      if (choice === 'new') {
+        await this.createNewRepository();
+      } else if (choice === 'clone') {
+        await gitCloneCommand.execute();
       }
-
-      await this.initializeRepository();
       return;
     }
 
     const action = await select({
       message: 'What would you like to do?',
       options: [
-        { value: 'sync', label: '🔄 Sync with remote', hint: 'Pull latest changes from remote repository' },
-        { value: 'commit', label: '💾 Commit changes', hint: 'Add and commit local changes' },
-        { value: 'push', label: '📤 Push to remote', hint: 'Push committed changes to remote repository' },
-        { value: 'remote', label: '🔗 Manage remote', hint: 'Add or update remote repository URL' },
+        { value: 'sync', label: '🔄 Sync', hint: 'Add + commit + push changes to remote' },
+        { value: 'pull', label: '📥 Pull', hint: 'Pull + validate structure & symlinks' },
+        { value: 'remote', label: '🔗 Manage remote', hint: 'Add or update remote URL (SSH only)' },
       ],
     });
 
     switch (action) {
       case 'sync':
-        await this.syncWithRemote();
+        await this.gitSync();
         break;
-      case 'commit':
-        await this.commitChanges();
-        break;
-      case 'push':
-        await this.pushChanges();
+      case 'pull':
+        await this.gitPull();
         break;
       case 'remote':
         await this.manageRemote();
         break;
+    }
+  },
+
+  async gitSync() {
+    const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
+
+    if (!gitInfo.remoteUrl) {
+      log.error('No remote repository configured. Add a remote first.');
+      const shouldAdd = await confirm({
+        message: 'Would you like to add a remote now?',
+        initialValue: true,
+      });
+
+      if (shouldAdd) {
+        await this.addExistingRemote();
+        return;
+      }
+      return;
+    }
+
+    const s = spinner();
+    s.start('Syncing with remote...');
+
+    try {
+      // 1. Add all changes
+      await GitLib.addAll(DOTSX_PATH);
+
+      // 2. Check if there are changes to commit
+      const hasChanges = await GitLib.hasUncommittedChanges(DOTSX_PATH);
+      if (!hasChanges) {
+        s.stop('No changes to sync');
+        log.info('Repository is up to date');
+        return;
+      }
+
+      // 3. Commit with timestamp
+      const timestamp = new Date().toISOString();
+      await GitLib.commit(DOTSX_PATH, `update dotsx [${timestamp}]`);
+
+      // 4. Push to remote
+      await GitLib.pushToRemote(DOTSX_PATH, gitInfo.currentBranch);
+
+      s.stop('✅ Synced successfully');
+      log.success('Changes pushed to remote');
+    } catch (error) {
+      s.stop('❌ Sync failed');
+      log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  async gitPull() {
+    const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
+
+    if (!gitInfo.remoteUrl) {
+      log.error('No remote repository configured. Add a remote first.');
+      return;
+    }
+
+    if (gitInfo.status?.hasUncommittedChanges) {
+      const shouldContinue = await confirm({
+        message: 'You have uncommitted changes. Continue with pull? (may cause conflicts)',
+        initialValue: false,
+      });
+
+      if (!shouldContinue) {
+        log.warn('Pull cancelled. Commit or stash your changes first.');
+        return;
+      }
+    }
+
+    const s = spinner();
+    s.start('Pulling from remote...');
+
+    try {
+      await GitLib.pullFromRemote(DOTSX_PATH);
+      s.stop('✅ Pulled successfully');
+
+      // Check for conflicts
+      const hasConflicts = await GitLib.hasConflicts(DOTSX_PATH);
+      if (hasConflicts) {
+        const conflictedFiles = await GitLib.getConflictedFiles(DOTSX_PATH);
+        log.error('🚨 Git conflicts detected!');
+        log.warn(`Conflicted files:\n${conflictedFiles.map((f) => `  - ${f}`).join('\n')}`);
+        log.info('💡 Resolve conflicts manually, then run:');
+        log.info('   git add .');
+        log.info('   git commit');
+        log.info('   dotsx check (to validate)');
+        return;
+      }
+
+      // Validate structure
+      log.info('Validating repository structure...');
+      const validation = GitLib.validateDotsxStructure(DOTSX_PATH);
+      if (!validation.isValid) {
+        log.warn(`⚠️  Missing directories: ${validation.missingDirectories.join(', ')}`);
+        const shouldRepair = await confirm({
+          message: 'Create missing directories?',
+          initialValue: true,
+        });
+
+        if (shouldRepair) {
+          log.info('Run: dotsx repair');
+        }
+      } else {
+        log.success('✅ Structure valid');
+      }
+
+      // Check symlinks
+      log.info('Checking symlinks...');
+      const links = await symlinkCommand.checkStatus();
+      if (links.incorrectSymlinks.length > 0) {
+        const shouldFix = await confirm({
+          message: `Fix ${links.incorrectSymlinks.length} broken symlink(s)?`,
+          initialValue: true,
+        });
+
+        if (shouldFix) {
+          await symlinkCommand.syncLinks(links);
+        }
+      } else {
+        log.success('✅ All symlinks correct');
+      }
+
+      log.success('🎉 Pull complete');
+    } catch (error) {
+      s.stop('❌ Pull failed');
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Detect merge conflicts in error message
+      if (errorMessage.includes('CONFLICT') || errorMessage.includes('merge')) {
+        log.error('Git conflict detected during merge!');
+        log.warn('💡 Resolve conflicts manually by running git pull --rebase, and then run dotsx');
+      } else {
+        log.error(`Error: ${errorMessage}`);
+      }
     }
   },
 
@@ -61,172 +201,168 @@ export const gitCommand = {
 
       const action = await select({
         message: 'What would you like to do?',
-        options: [{ value: 'change', label: '🔄 Change remote URL', hint: 'Update remote repository URL' }],
+        options: [{ value: 'change', label: '🔄 Change remote URL', hint: 'Update remote repository URL (SSH only)' }],
       });
 
       if (action === 'change') {
-        await this.changeRemote();
+        await this.addExistingRemote();
       }
     } else {
       log.info('No remote repository configured');
-      await this.addRemote();
-    }
-  },
-
-  async initializeRepository() {
-    const s = spinner();
-    s.start('Initializing Git repository...');
-
-    try {
-      await GitLib.initRepository(DOTSX_PATH);
-      s.stop('Git repository initialized');
-
-      const shouldAddRemote = await confirm({
-        message: 'Add a remote repository?',
-        initialValue: true,
-      });
-
-      if (shouldAddRemote) {
-        await this.addRemote();
-      }
-
-      const shouldCommit = await confirm({
-        message: 'Create initial commit?',
-        initialValue: true,
-      });
-
-      if (shouldCommit) {
-        await GitLib.addAndCommit(DOTSX_PATH, 'feat: initial DotsX configuration');
-        log.success('Initial commit created');
-      }
-    } catch (error) {
-      s.stop('Failed to initialize repository');
-      log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  },
-
-  async addRemote() {
-    const createRepoOption = await select({
-      message: 'How do you want to add the remote repository?',
-      options: [
-        { value: 'existing', label: '🔗 Use existing repository', hint: 'I already have a repository created' },
-        { value: 'create', label: '✨ Create new repository', hint: 'Create a new repository automatically' },
-      ],
-    });
-
-    if (createRepoOption === 'create') {
-      await this.createAndAddRemote();
-    } else {
       await this.addExistingRemote();
     }
   },
 
-  async createAndAddRemote() {
-    const repoName = await text({
-      message: 'Enter repository name:',
-      placeholder: 'dotsx-config',
-      validate: (value) => {
-        if (!value || value.trim().length === 0) {
-          return 'Repository name is required';
-        }
-        return undefined;
-      },
-    });
-
-    if (!repoName || typeof repoName !== 'string') {
-      log.warn('Repository creation cancelled.');
-      return;
-    }
-
-    const platform = await select({
-      message: 'Choose platform:',
-      options: [
-        { value: 'github', label: '🐙 GitHub', hint: 'Create repository on GitHub (requires gh CLI)' },
-        { value: 'manual', label: '🔧 Manual', hint: 'I will create the repository myself' },
-      ],
-    });
-
-    if (platform === 'github') {
-      await this.createGitHubRepository(repoName);
-    } else {
-      await this.showManualInstructions(repoName);
-    }
-  },
-
-  async createGitHubRepository(repoName: string) {
-    log.warn('⚠️  This will create a repository on your GitHub account');
-
-    const isGhInstalled = await GitLib.isGhInstalled();
-    if (!isGhInstalled) {
-      log.error('GitHub CLI (gh) is not installed. Install it first:');
-      log.info(
-        '💡 curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg',
-      );
-      return;
-    }
-
-    const isAuthenticated = await GitLib.isGhAuthenticated();
-    if (!isAuthenticated) {
-      log.error('GitHub CLI is not authenticated. Run:');
-      log.info('💡 gh auth login');
-      return;
-    }
-
-    let isPrivate = await confirm({
-      message: 'Make repository private?',
+  async createNewRepository() {
+    const shouldAddRemote = await confirm({
+      message: 'Do you want to connect this to a remote repository?',
       initialValue: true,
     });
 
-    if (typeof isPrivate !== 'boolean') {
-      log.warn('Repository will be created as public');
-      isPrivate = true;
+    if (!shouldAddRemote) {
+      const s = spinner();
+      s.start('Initializing local Git repository...');
+      try {
+        await GitLib.initRepository(DOTSX_PATH);
+        await GitLib.addAndCommit(DOTSX_PATH, 'feat: initial DotsX configuration');
+        s.stop('✅ Local repository created');
+        log.success('Git repository initialized (local only)');
+      } catch (error) {
+        s.stop('❌ Failed to initialize repository');
+        log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+      return;
+    }
+
+    // Atomic flow: get URL → check/create remote → init → add remote → push
+    await this.createWithRemoteAtomic();
+  },
+
+  async createWithRemoteAtomic() {
+    // Step 1: Get remote URL
+    const remoteUrl = await text({
+      message: 'Enter the remote repository URL (SSH only):',
+      placeholder: 'git@github.com:username/dotsx-config.git',
+      validate: (value) => {
+        if (!value) return 'Remote URL is required';
+        try {
+          GitLib.validateGitUrlOrThrow(value);
+          return undefined;
+        } catch (error) {
+          return error instanceof Error ? error.message : 'Invalid URL';
+        }
+      },
+    });
+
+    if (!remoteUrl || typeof remoteUrl !== 'string') {
+      log.warn('Initialization cancelled.');
+      return;
     }
 
     const s = spinner();
-    s.start('Creating GitHub repository...');
+    s.start('Checking remote repository...');
 
     try {
-      const repoUrl = await GitLib.createGitHubRepo(repoName, isPrivate);
-      await GitLib.addRemote(DOTSX_PATH, 'origin', repoUrl);
-      s.stop('✅ Repository created and remote added');
-      log.success(`🎉 Repository created: ${repoUrl}`);
+      // Step 2: Check if remote exists
+      const remoteExists = await GitLib.checkRemoteExists(remoteUrl);
+
+      if (!remoteExists) {
+        s.stop('⚠️  Remote repository does not exist');
+
+        // Check if it's a GitHub URL and offer to create
+        const repoInfo = GitLib.extractRepoInfoFromUrl(remoteUrl);
+        if (repoInfo && GitLib.isGitHubUrl(remoteUrl)) {
+          const shouldCreate = await confirm({
+            message: `Repository ${repoInfo.owner}/${repoInfo.repo} not found. Create it on GitHub?`,
+            initialValue: true,
+          });
+
+          if (shouldCreate) {
+            const isGhInstalled = await GitLib.isGhInstalled();
+            if (!isGhInstalled) {
+              log.error('GitHub CLI (gh) is not installed.');
+              log.info('💡 Install it: https://cli.github.com/');
+              log.info('Or create the repository manually on GitHub and try again.');
+              return;
+            }
+
+            const isAuthenticated = await GitLib.isGhAuthenticated();
+            if (!isAuthenticated) {
+              log.error('GitHub CLI is not authenticated.');
+              log.info('💡 Run: gh auth login');
+              return;
+            }
+
+            const isPrivate = await confirm({
+              message: 'Make repository private?',
+              initialValue: true,
+            });
+
+            if (typeof isPrivate !== 'boolean') {
+              log.error('Invalid response. Please make a valid choice.');
+              return;
+            }
+
+            s.start('Creating GitHub repository...');
+            try {
+              await GitLib.createGitHubRepo(repoInfo.repo, isPrivate);
+              s.stop('✅ GitHub repository created');
+
+              // Wait a bit for GitHub to fully create the repo
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+            } catch (error) {
+              s.stop('❌ Failed to create repository');
+              log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+              log.info('💡 Create the repository manually on GitHub and try again.');
+              return;
+            }
+          } else {
+            log.info('💡 Create the repository manually on GitHub and try again.');
+            return;
+          }
+        } else {
+          log.error('Remote repository does not exist.');
+          log.info('💡 Create the repository first or check the URL.');
+          return;
+        }
+      } else {
+        s.stop('✅ Remote repository found');
+      }
+
+      // Step 3: Init local repository
+      s.start('Initializing Git repository...');
+      await GitLib.initRepository(DOTSX_PATH);
+      await GitLib.addAndCommit(DOTSX_PATH, 'feat: initial DotsX configuration');
+
+      // Step 4: Add remote
+      await GitLib.addRemote(DOTSX_PATH, 'origin', remoteUrl);
+
+      // Step 5: Push
+      s.message('Pushing to remote...');
+      await GitLib.pushAndSetUpstream(DOTSX_PATH);
+
+      s.stop('✅ Repository created and synced');
+      log.success('🎉 Git repository initialized and connected to remote!');
     } catch (error) {
-      s.stop('❌ Failed to create repository');
+      s.stop('❌ Failed');
       log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      log.info('💡 You can create the repository manually and add it as a remote');
-    }
-  },
-
-  async showManualInstructions(repoName: string) {
-    log.warn('⚠️  You need to create the repository manually');
-    log.info('📋 Instructions:');
-    log.info('1. Go to your Git platform (GitHub, GitLab, Bitbucket, etc.)');
-    log.info(`2. Create a new repository named: ${repoName}`);
-    log.info('3. Keep it empty (no README, .gitignore, or license)');
-    log.info('4. Copy the repository URL');
-
-    const shouldAddNow = await confirm({
-      message: 'Have you created the repository? Add it now?',
-      initialValue: false,
-    });
-
-    if (shouldAddNow) {
-      await this.addExistingRemote();
-    } else {
-      log.info('💡 You can add the remote later via "🔗 Manage remote"');
+      log.warn('Initialization failed.');
+      log.info('💡 Check your SSH keys and repository permissions.');
     }
   },
 
   async addExistingRemote() {
     const remoteUrl = await text({
-      message: 'Enter the remote repository URL:',
-      placeholder: 'https://github.com/username/dotsx-config.git',
+      message: 'Enter the remote repository URL (SSH only):',
+      placeholder: 'git@github.com:username/dotsx-config.git',
       validate: (value) => {
         if (!value) return 'Remote URL is required';
-        if (!GitLib.validateGitUrl(value)) {
-          return 'Please enter a valid Git repository URL';
+        try {
+          GitLib.validateGitUrlOrThrow(value);
+          return undefined;
+        } catch (error) {
+          return error instanceof Error ? error.message : 'Invalid URL';
         }
-        return undefined;
       },
     });
 
@@ -240,134 +376,6 @@ export const gitCommand = {
       log.success('✅ Remote repository added successfully');
     } catch (error) {
       log.error(`❌ Failed to add remote: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  },
-
-  async syncWithRemote() {
-    const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
-
-    if (!gitInfo.remoteUrl) {
-      log.error('No remote repository configured. Add a remote first.');
-      return;
-    }
-
-    if (gitInfo.status?.hasUncommittedChanges) {
-      const shouldContinue = await confirm({
-        message: 'You have uncommitted changes. Continue with sync? (may cause conflicts)',
-        initialValue: false,
-      });
-
-      if (!shouldContinue) {
-        log.warn('Sync cancelled. Commit your changes first.');
-        return;
-      }
-    }
-
-    const s = spinner();
-    s.start('Syncing with remote repository...');
-
-    try {
-      await GitLib.pullFromRemote(DOTSX_PATH);
-      s.stop('Successfully synced with remote');
-      log.success('Your DotsX configuration is now up-to-date');
-    } catch (error) {
-      s.stop('Sync failed');
-      log.error(`Failed to sync: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      log.info('💡 Try resolving conflicts manually or stash your changes first');
-    }
-  },
-
-  async commitChanges() {
-    const hasChanges = await GitLib.hasUncommittedChanges(DOTSX_PATH);
-
-    if (!hasChanges) {
-      log.info('No changes to commit');
-      return;
-    }
-
-    const commitMessage = await text({
-      message: 'Enter commit message:',
-      placeholder: 'Update DotsX configuration',
-      validate: (value) => {
-        if (!value || value.trim().length === 0) {
-          return 'Commit message is required';
-        }
-        return undefined;
-      },
-    });
-
-    if (!commitMessage || typeof commitMessage !== 'string') {
-      log.warn('Commit cancelled.');
-      return;
-    }
-
-    const s = spinner();
-    s.start('Committing changes...');
-
-    try {
-      await GitLib.addAndCommit(DOTSX_PATH, commitMessage);
-      s.stop('Changes committed successfully');
-      log.success('Your changes have been committed');
-    } catch (error) {
-      s.stop('Commit failed');
-      log.error(`Failed to commit: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  },
-
-  async pushChanges() {
-    const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
-
-    if (!gitInfo.remoteUrl) {
-      log.error('No remote repository configured. Add a remote first.');
-      return;
-    }
-
-    if (gitInfo.status?.hasUncommittedChanges) {
-      log.warn('You have uncommitted changes. Commit them first.');
-      return;
-    }
-
-    if (gitInfo.status?.ahead === 0) {
-      log.info('No commits to push');
-      return;
-    }
-
-    const s = spinner();
-    s.start('Pushing to remote repository...');
-
-    try {
-      await GitLib.pushToRemote(DOTSX_PATH, gitInfo.currentBranch);
-      s.stop('Successfully pushed to remote');
-      log.success('Your changes have been pushed to the remote repository');
-    } catch (error) {
-      s.stop('Push failed');
-      log.error(`Failed to push: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  },
-
-  async changeRemote() {
-    const newRemoteUrl = await text({
-      message: 'Enter new remote repository URL:',
-      placeholder: 'https://github.com/username/dotsx-config.git',
-      validate: (value) => {
-        if (!value) return 'Remote URL is required';
-        if (!GitLib.validateGitUrl(value)) {
-          return 'Please enter a valid Git repository URL';
-        }
-        return undefined;
-      },
-    });
-
-    if (!newRemoteUrl || typeof newRemoteUrl !== 'string') {
-      log.warn('Remote change cancelled.');
-      return;
-    }
-
-    try {
-      await GitLib.addRemote(DOTSX_PATH, 'origin', newRemoteUrl);
-      log.success('Remote repository updated successfully');
-    } catch (error) {
-      log.error(`Failed to update remote: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
 };

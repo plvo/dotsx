@@ -10,7 +10,6 @@ export interface OsInfo {
 export interface SystemInfo extends OsInfo {
   arch: string;
   hostname: string;
-  memory: string;
   shell: string;
   rcFile: string;
 }

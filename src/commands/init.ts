@@ -4,7 +4,7 @@ import { getDomainByDistro, getDomainByName, getDomainsByType } from '@/domains'
 import { DOTSX, DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { DotsxInfoLib, SystemLib } from '@/lib/system';
-import type { Domain, Family } from '@/types';
+import type { Domain, Family, OsInfo } from '@/types';
 
 export const initCommand = {
   async execute() {
@@ -35,14 +35,7 @@ export const initCommand = {
         })) satisfies Option<string>[],
       });
 
-      if (osInfo.distro) {
-        const osDomain = getDomainByDistro(osInfo.distro) || getDomainByName(osInfo.family);
-        if (osDomain) {
-          await this.initOs(osDomain);
-        }
-      } else {
-        log.error(`No OS domain found for ${osInfo.family}`);
-      }
+      await this.initOs(osInfo);
 
       if (Array.isArray(terminals)) {
         for (const terminalName of terminals) {
@@ -62,13 +55,8 @@ export const initCommand = {
         }
       }
 
-      if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
-        FileLib.createDirectory(DOTSX.BIN.PATH);
-        FileLib.createFile(DOTSX.BIN.ALIAS);
-        log.success(`Bin directory created: ${DOTSX.BIN.PATH}`);
-      } else {
-        log.success(`Bin directory already exists: ${DOTSX.BIN.PATH}`);
-      }
+      await this.initBin();
+      await this.initSymlinks();
 
       log.success(`🎉 Initialized in: ${DOTSX_PATH}`);
     } catch (error) {
@@ -76,13 +64,20 @@ export const initCommand = {
     }
   },
 
-  async initOs(domain: Domain) {
+  async initOs(osInfo: OsInfo) {
+    const domain = osInfo.distro ? getDomainByDistro(osInfo.distro) : getDomainByName(osInfo.family);
+
+    if (!domain) {
+      log.error(`No OS domain found for ${osInfo.family}`);
+      return;
+    }
+
     if (!domain.packageManagers) {
       log.error(`No package managers defined for ${domain.name}`);
       return;
     }
 
-    log.info(`📦 Initializing ${domain.name} package management...`);
+    log.info(`📦 Configuring ${domain.name} package management...`);
     const created: string[] = [];
 
     const osDirPath = resolve(DOTSX.OS.PATH, domain.name);
@@ -130,5 +125,24 @@ export const initCommand = {
         `Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`,
       );
     notFound.length > 0 && log.warning(`Ignored because not found:\n${notFound.join('\n')}`);
+  },
+
+  async initBin() {
+    if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
+      FileLib.createDirectory(DOTSX.BIN.PATH);
+      FileLib.createFile(DOTSX.BIN.ALIAS);
+      log.success(`Bin directory created: ${DOTSX.BIN.PATH}`);
+    } else {
+      log.success(`Bin directory already exists: ${DOTSX.BIN.PATH}`);
+    }
+  },
+
+  async initSymlinks() {
+    if (!FileLib.isDirectory(DOTSX.SYMLINKS)) {
+      FileLib.createDirectory(DOTSX.SYMLINKS);
+      log.success(`Symlinks directory created: ${DOTSX.SYMLINKS}`);
+    } else {
+      log.success(`Symlinks directory already exists: ${DOTSX.SYMLINKS}`);
+    }
   },
 };

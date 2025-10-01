@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { log } from '@clack/prompts';
+import { BackupLib } from './backup';
+import { DOTSX_PATH } from './constants';
 
 export const FileLib = {
   isPathExists(path: string) {
@@ -155,61 +157,111 @@ export const FileLib = {
 
   /**
    * Expand a path to an absolute path
+   * Supports both ~ and __home__ notation
    * @example ~/workspace -> /home/user/workspaces
-   * /home/user/workspace -> /home/user/workspace
+   * @example __home__/workspace -> /home/user/workspaces
+   * @example /home/user/workspace -> /home/user/workspace
    */
   expandPath(inputPath: string): string {
-    return inputPath.startsWith('~/') ? path.resolve(homedir(), inputPath.slice(2)) : inputPath;
+    if (inputPath.startsWith('~/')) {
+      return path.resolve(homedir(), inputPath.slice(2));
+    }
+    if (inputPath.startsWith('__home__/')) {
+      return path.resolve(homedir(), inputPath.slice(9));
+    }
+    if (inputPath === '__home__') {
+      return homedir();
+    }
+    return inputPath;
   },
 
   getFileSymlinkPath(inputPath: string): string {
     return fs.readlinkSync(path.resolve(inputPath));
   },
 
+  /**
+   * Convert absolute path to __home__ notation for storage
+   * @example /home/user/workspace -> __home__/workspace
+   * @example /etc/config -> /etc/config
+   */
   getDisplayPath(inputPath: string): string {
-    return inputPath.replace(homedir(), '~');
-  },
-
-  backupPath(src: string) {
-    // YYYYMMDDHHMMSSMMM
-    const formattedTimestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 17);
-
-    const dest = `${src}.dotsx.${formattedTimestamp}.backup`;
-
-    if (this.isSymLink(src)) {
-      // If it's a symlink, backup the target content
-      const realPath = this.getFileSymlinkPath(src);
-      const resolvedPath = path.resolve(path.dirname(src), realPath);
-
-      this.backupPath(resolvedPath);
-
-      fs.unlinkSync(src); // Remove the symlink
-    } else if (this.isDirectory(src)) {
-      this.copyDirectory(src, dest);
-    } else if (this.isFile(src)) {
-      this.copyFile(src, dest);
-    }
+    return inputPath.replace(homedir(), '__home__');
   },
 
   /**
-   * Creates a safe symlink from src (source file) to dest (symlink path).
-   * Automatically creates parent directories and backs up existing dest file.
-   * @param src - Source file/directory path (user content)
-   * @param dest - Destination symlink path (~/.dotsx/*)
-   * @param copyFirst - If true, copies src to dest before creating symlink
+   * Creates a safe symlink with backup.
+   * @param systemPath - System file path (e.g., /home/user/.zshrc)
+   * @param dotsxPath - DotsX content path (e.g., /home/user/.dotsx/symlinks/__home__/.zshrc)
    */
-  safeSymlink(src: string, dest: string) {
-    // Create parent directory if it doesn't exist
-    this.createDirectory(path.dirname(dest));
-
-    if (this.isFile(dest)) {
-      this.backupPath(dest);
-      this.deleteFile(dest);
-    } else if (this.isDirectory(dest)) {
-      this.backupPath(dest);
-      this.deleteDirectory(dest);
+  safeSymlink(systemPath: string, dotsxPath: string) {
+    if (!this.isPathExists(systemPath)) {
+      throw new Error(`Source path does not exist: ${systemPath}`);
     }
 
-    fs.symlinkSync(src, dest);
+    // Early return: If systemPath is already a correct symlink to dotsxPath, nothing to do
+    if (this.isSymLinkContentCorrect(dotsxPath, systemPath)) {
+      log.info(`Symlink already correct: ${this.getDisplayPath(systemPath)}`);
+      return;
+    }
+
+    const dotsxRelativePath = path.relative(DOTSX_PATH, dotsxPath);
+
+    let sourceToBackup = systemPath;
+    let sourceToMove = systemPath;
+
+    if (this.isSymLink(systemPath)) {
+      try {
+        const symlinkTarget = fs.readlinkSync(systemPath);
+        const resolvedPath = path.resolve(path.dirname(systemPath), symlinkTarget);
+
+        if (this.isPathExists(resolvedPath)) {
+          sourceToBackup = resolvedPath;
+          sourceToMove = resolvedPath;
+          log.info(`Following symlink to actual content: ${this.getDisplayPath(resolvedPath)}`);
+        }
+
+        fs.unlinkSync(systemPath);
+      } catch (error) {
+        log.warning(`Could not resolve symlink ${this.getDisplayPath(systemPath)}: ${error}`);
+        // If we can't resolve it, just delete the broken symlink
+        fs.unlinkSync(systemPath);
+      }
+    }
+
+    // Create daily backup in ~/.backup.dotsx (mirrors dotsx structure)
+    if (BackupLib.shouldCreateBackup(dotsxRelativePath)) {
+      BackupLib.createDailyBackup(dotsxRelativePath, sourceToBackup);
+    } else {
+      log.info(`Backup already created today for ${this.getDisplayPath(systemPath)}`);
+    }
+
+    // Create parent directory for dotsx path
+    this.createDirectory(path.dirname(dotsxPath));
+
+    // Move content to dotsx (only if source is not already the dotsx path)
+    if (sourceToMove !== dotsxPath && this.isPathExists(sourceToMove)) {
+      if (this.isFile(sourceToMove)) {
+        this.copyFile(sourceToMove, dotsxPath);
+        this.deleteFile(sourceToMove);
+      } else if (this.isDirectory(sourceToMove)) {
+        this.copyDirectory(sourceToMove, dotsxPath);
+        this.deleteDirectory(sourceToMove);
+      }
+    }
+
+    // Ensure systemPath doesn't exist before creating symlink
+    // (in case it's still there after processing)
+    if (this.isPathExists(systemPath)) {
+      if (this.isFile(systemPath)) {
+        this.deleteFile(systemPath);
+      } else if (this.isDirectory(systemPath)) {
+        this.deleteDirectory(systemPath);
+      } else if (this.isSymLink(systemPath)) {
+        fs.unlinkSync(systemPath);
+      }
+    }
+
+    // Create symlink: system → dotsx
+    fs.symlinkSync(dotsxPath, systemPath);
   },
 };

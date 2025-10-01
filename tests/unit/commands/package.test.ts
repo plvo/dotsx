@@ -14,7 +14,7 @@ mock.module('node:child_process', () => ({
   execSync: mockExecSync,
 }));
 
-import { packageCommand } from '../../../src/commands/package';
+import { packageCommand } from '../../../src/commands/os';
 
 describe('packageCommand', () => {
   let testDir: string;

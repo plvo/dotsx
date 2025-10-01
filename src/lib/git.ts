@@ -27,6 +27,7 @@ export const GitLib = {
   },
 
   async cloneRepository(url: string, targetPath: string): Promise<void> {
+    this.validateGitUrlOrThrow(url);
     try {
       await execAsync(`git clone "${url}" "${targetPath}"`);
     } catch (error) {
@@ -105,6 +106,26 @@ export const GitLib = {
     }
   },
 
+  async getDefaultBranch(dirPath: string): Promise<string> {
+    try {
+      // First try to get current branch
+      const currentBranch = await this.getCurrentBranch(dirPath);
+      if (currentBranch && currentBranch !== 'unknown') {
+        return currentBranch;
+      }
+
+      // Fallback: check if main or master exists
+      try {
+        await execAsync('git rev-parse --verify main', { cwd: dirPath });
+        return 'main';
+      } catch {
+        return 'master';
+      }
+    } catch {
+      return 'main';
+    }
+  },
+
   async getLastCommit(
     dirPath: string,
   ): Promise<{ hash: string; message: string; author: string; date: string } | undefined> {
@@ -168,8 +189,19 @@ export const GitLib = {
   },
 
   async addRemote(dirPath: string, remoteName: string, url: string): Promise<void> {
+    this.validateGitUrlOrThrow(url);
     try {
-      await execAsync(`git remote add ${remoteName} "${url}"`, { cwd: dirPath });
+      // Check if remote already exists
+      const { stdout } = await execAsync('git remote', { cwd: dirPath });
+      const remotes = stdout.trim().split('\n').filter(Boolean);
+
+      if (remotes.includes(remoteName)) {
+        // Remote exists, update URL
+        await execAsync(`git remote set-url ${remoteName} "${url}"`, { cwd: dirPath });
+      } else {
+        // Remote doesn't exist, add it
+        await execAsync(`git remote add ${remoteName} "${url}"`, { cwd: dirPath });
+      }
     } catch (error) {
       throw new Error(`Failed to add remote: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -183,13 +215,34 @@ export const GitLib = {
     }
   },
 
-  async addAndCommit(dirPath: string, message: string): Promise<void> {
+  async pushAndSetUpstream(dirPath: string): Promise<void> {
+    try {
+      const branch = await this.getDefaultBranch(dirPath);
+      await execAsync(`git push --set-upstream origin ${branch}`, { cwd: dirPath });
+    } catch (error) {
+      throw new Error(`Failed to push to remote: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  async addAll(dirPath: string): Promise<void> {
     try {
       await execAsync('git add .', { cwd: dirPath });
+    } catch (error) {
+      throw new Error(`Failed to add changes: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  async commit(dirPath: string, message: string): Promise<void> {
+    try {
       await execAsync(`git commit -m "${message}"`, { cwd: dirPath });
     } catch (error) {
       throw new Error(`Failed to commit changes: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  },
+
+  async addAndCommit(dirPath: string, message: string): Promise<void> {
+    await this.addAll(dirPath);
+    await this.commit(dirPath, message);
   },
 
   async pullFromRemote(dirPath: string): Promise<void> {
@@ -231,20 +284,6 @@ export const GitLib = {
       missingDirectories,
       message: `Missing directories: ${missingDirectories.join(', ')}`,
     };
-  },
-
-  extractRepoName(url: string): string {
-    try {
-      const match = url.match(/\/([^/]+?)(?:\.git)?(?:\/)?$/);
-      return match?.[1] || 'unknown';
-    } catch {
-      return 'unknown';
-    }
-  },
-
-  validateGitUrl(url: string): boolean {
-    const gitUrlPattern = /^(https?:\/\/|git@)[\w.-]+[/:][\w.-]+\/[\w.-]+(?:\.git)?$/;
-    return gitUrlPattern.test(url);
   },
 
   isGitHubUrl(url: string): boolean {
@@ -291,6 +330,64 @@ export const GitLib = {
       return stdout.trim();
     } catch {
       return 'username';
+    }
+  },
+
+  async checkRemoteExists(url: string): Promise<boolean> {
+    try {
+      // Try to list remote refs without cloning
+      await execAsync(`git ls-remote "${url}" HEAD`, { timeout: 5000 });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  extractRepoInfoFromUrl(url: string): { owner: string; repo: string } | null {
+    // Parse git@github.com:owner/repo.git
+    const sshMatch = url.match(/^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/);
+    if (sshMatch?.[1] && sshMatch?.[2]) {
+      return { owner: sshMatch[1], repo: sshMatch[2] };
+    }
+    return null;
+  },
+
+  async hasConflicts(dirPath: string): Promise<boolean> {
+    try {
+      const { stdout } = await execAsync('git diff --name-only --diff-filter=U', { cwd: dirPath });
+      return stdout.trim().length > 0;
+    } catch {
+      return false;
+    }
+  },
+
+  async getConflictedFiles(dirPath: string): Promise<string[]> {
+    try {
+      const { stdout } = await execAsync('git diff --name-only --diff-filter=U', { cwd: dirPath });
+      return stdout.trim().split('\n').filter(Boolean);
+    } catch {
+      return [];
+    }
+  },
+
+  extractRepoName(url: string): string {
+    try {
+      const match = url.match(/\/([^/]+?)(?:\.git)?(?:\/)?$/);
+      return match?.[1] || 'unknown';
+    } catch {
+      return 'unknown';
+    }
+  },
+
+  validateGitUrlOrThrow(url: string): void {
+    // Only SSH format: git@github.com:user/repo.git
+    const sshPattern = /^git@[\w.-]+:[\w.-]+\/[\w.-]+(?:\.git)?$/;
+    if (!sshPattern.test(url)) {
+      throw new Error(
+        'Invalid Git URL. Only SSH format is supported.\n' +
+          'Expected format: git@github.com:username/repo.git\n' +
+          `Received: ${url}`,
+      );
     }
   },
 };

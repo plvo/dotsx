@@ -6,7 +6,7 @@ import * as clackPrompts from '@clack/prompts';
 import { DOTSX } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import type { AllLinks } from '@/types';
-import { linkCommand } from '../../../src/commands/link';
+import { linkCommand } from '../../../src/commands/symlink';
 
 describe('linkCommand', () => {
   let testDir: string;

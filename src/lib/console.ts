@@ -1,4 +1,4 @@
-import { log } from '@clack/prompts';
+import { log, spinner } from '@clack/prompts';
 import type { ConfigStatusInfo, Domain, Family, OsInfo } from '@/types';
 import { DOTSX_PATH } from './constants';
 import { FileLib } from './file';
@@ -6,45 +6,60 @@ import { GitLib } from './git';
 import { DotsxInfoLib, SystemLib } from './system';
 
 export const ConsoleLib = {
-  logListWithTitle(title: string, list: string[]) {
-    console.log(`\n${title} (${list.length}):`);
-    list.forEach((item) => {
-      console.log(` ${item}`);
-    });
+  getDisplayDate(timestamp: string): string {
+    const year = timestamp.slice(0, 4);
+    const month = timestamp.slice(4, 6);
+    const day = timestamp.slice(6, 8);
+    const hour = timestamp.slice(8, 10);
+    const minute = timestamp.slice(10, 12);
+    const second = timestamp.slice(12, 14);
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
   },
 
-  async displayInfo() {
+  logListWithTitle(title: string, list: string[]) {
+    log.step(`${title} (${list.length}):\n${list.join('\n')}`);
+  },
+
+  async printSystemInfo() {
     const info = SystemLib.getSystemInfo();
-    log.info(`${info.hostname} system info:
- 🖥️  ${info.distro} ${info.release} (${info.platform} ${info.arch})
- 💾 RAM: ${info.memory} 
- 📄 ${info.rcFile} (${info.shell})`);
+    const s = spinner({ indicator: 'dots' });
+
+    s.start('System info check...');
+
+    s.stop(`${info.hostname} system info:
+\t🖥️  ${info.distro} ${info.release} (${info.platform} ${info.arch})
+\t📄 ${info.rcFile} (${info.shell})`);
+  },
+
+  async printDotsxState() {
+    const s = spinner({ indicator: 'dots' });
+    s.start('DotsX state check...');
 
     const dotsxState = DotsxInfoLib.getDotsxState();
 
     if (dotsxState.isInitialized) {
-      log.info(
+      s.stop(
         `${dotsxState.isBinInitialized ? '✅' : '❌'} Bin ${dotsxState.isIdeInitialized ? '✅' : '❌'} IDE ${dotsxState.isOsInitialized ? '✅' : '❌'} OS ${dotsxState.isTerminalInitialized ? '✅' : '❌'} Terminal`,
       );
-
-      await this.displayGitInfo();
     } else {
-      log.error('DotsX (Not configured)');
+      s.stop('DotsX (Not configured)');
     }
   },
 
-  async displayGitInfo() {
+  async printGitInfo() {
+    const s = spinner({ indicator: 'dots' });
+    s.start('Git info check...');
+
     try {
       const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
 
       if (!gitInfo.isRepository) {
-        log.info('📦 Git: Not initialized');
+        s.stop('📦 Git: Not initialized');
         return;
       }
 
       let gitStatus = `📁 ${gitInfo.remoteUrl} (🌿 ${gitInfo.currentBranch})
-📝 Last commit: "${gitInfo.lastCommit?.message ?? 'Unknown'}" ${gitInfo.lastCommit?.hash ?? 'Unknown hash'} (${gitInfo.lastCommit?.date ?? 'Unknown date'})
-`;
+\t📝 Last commit: "${gitInfo.lastCommit?.message ?? 'Unknown'}" ${gitInfo.lastCommit?.hash ?? 'Unknown hash'} (${gitInfo.lastCommit?.date ?? 'Unknown date'})`;
 
       if (gitInfo.status) {
         const { ahead, behind, hasUncommittedChanges } = gitInfo.status;
@@ -56,13 +71,13 @@ export const ConsoleLib = {
           if (ahead > 0) statusParts.push(`📤 ${ahead} ahead`);
           if (behind > 0) statusParts.push(`📥 ${behind} behind`);
           if (hasUncommittedChanges) statusParts.push('⚠️  uncommitted changes');
-          gitStatus += `🔄 ${statusParts.join(', ')}`;
+          gitStatus += `\n\t${statusParts.join(', ')}`;
         }
       }
 
-      log.info(gitStatus);
+      s.stop(gitStatus);
     } catch (_error) {
-      log.info('📦 Git: Error reading repository info');
+      s.stop('📦 Git: Error reading repository info');
     }
   },
 

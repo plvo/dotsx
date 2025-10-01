@@ -1,62 +1,220 @@
+
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## 🎯 Document Objective
+This document describes **dotsx**, a CLI tool for managing dotfiles.  
+It provides the LLM with:  
+- The **context** and architecture of the project.  
+- The main **features**.  
+- The **code interfaces** to follow.  
+- The **Git and usage workflows** in normalized form.  
+- The **constraints** (current limitations).  
 
-## Project Overview
+---
 
-DotsX is a CLI tool for managing dotfiles built with Bun and TypeScript. It provides an interactive interface for initializing, linking, and managing dotfiles, packages, and bin scripts across different systems.
+## 📌 Context
+**dotsx** is a CLI tool that centralizes and manages configurations ("dotfiles") on GitHub:  
+- Shell files (`.zshrc`, `.bashrc`, …).  
+- IDE configurations (VSCode, Cursor, etc.).  
+- Terminal configurations (ZSH, Bash, TMUX).  
+- Packages installed depending on OS and package manager (`apt`, `pacman`, `brew`, etc.).  
 
-## Commands
+All data is stored in `~/.dotsx` and versioned via GitHub.  
 
-### Development
-- `bun run dev` - Run the application in development mode
-- `bun run build` - Build the production binary (`dotsx`)
-- `bun run prepublishOnly` - Build and make executable for publishing
+---
 
-### Code Quality
-- `bun run lint` - Run Biome linter with auto-fixes
-- `bun run format` - Format code with Biome
-- `bun run check` - Check code without fixes
+## 🛠 Features
 
-## Architecture
+### Symlinks
+- Each configuration file is **symlinked** from its original location to `~/.dotsx/symlinks`.  
+- Example:  
+  ```
+  ~/.claude/CLAUDE.md → ~/.dotsx/symlinks/__home__/.claude/CLAUDE.md
+  ```  
+- The `__home__` notation replaces `~` to stay user-agnostic.  
 
-### Core Structure
-The application follows a command-based architecture with modular components:
+### Folder Architecture (`~/.dotsx`)
+```
+~/.dotsx/
+  ├── bin/          # Executable scripts + aliases
+  ├── ide/          # IDE configs (ex: vscode, cursor)
+  ├── terminal/     # Terminal configs (zsh, bash, tmux)
+  ├── os/           # OS + package managers configs
+  └── symlinks/     # Symlinked content outside entities
+```
 
-- **Entry Point**: `src/index.ts` - Interactive CLI with @clack/prompts
-- **Commands**: `src/commands/` - Each major feature as separate command modules
-  - `init.ts` - Initialize ~/.dotsx directory structure
-  - `link.ts` - Manage symlinks between dotfiles and system locations
-  - `bin.ts` - Manage executable scripts and aliases
-  - `package/` - Package management (APT, Snap) for different distros
-- **Libraries**: `src/lib/` - Shared utilities
-  - `file.ts` - File system operations and utilities
-  - `system.ts` - System information and shell detection
-  - `constants.ts` - Path constants for ~/.dotsx structure
+#### Bin (`~/.dotsx/bin/`)
+- Contains `.sh` executables.  
+- Aliases generated in `~/.dotsx/bin/_dotsx-bin.aliases`.  
+- This file is auto-sourced in the terminal RC.  
 
-### Key Concepts
+#### IDE (`~/.dotsx/ide/`)
+- One folder per IDE.  
+- Example: `~/.dotsx/ide/vscode/**`.  
 
-**Dotfiles Structure**: The tool manages a `~/.dotsx` directory with:
-- `core/` - OS-specific configurations
-- `terminal/` - Shell configurations (.zshrc, .bashrc, .tmux.conf)
-- `ide/` - IDE settings (Cursor, VSCode)
-- `bin/` - Executable scripts with alias management
-- `links/` - Symlinked files and directories
+#### Terminal (`~/.dotsx/terminal/`)
+- One folder per shell/terminal.  
+- Example: `~/.dotsx/terminal/zsh/**`.  
 
-**File Operations**: All file operations go through `FileLib` which provides safe symlink creation, directory copying, and executable management.
+#### OS (`~/.dotsx/os/`)
+- One folder per OS/distro.  
+- Each package manager represented by `.txt` listing packages.  
+- Example (Debian):  
+  ```
+  ~/.dotsx/os/debian/
+    ├── apt.txt
+    ├── flatpak.txt
+    └── snap.txt
+  ```
 
-**System Detection**: `SystemLib` detects OS, shell, and provides system information display.
+### Backup
+- Each file/folder is backed up before modification.  
+- Stored in `~/.backup.dotsx`.  
+- Format: `<filename>.<YYYYMMDDHHMMSSMS>.dotsx.backup`.  
+- Maximum 7 backups per file.  
+- Backup is mandatory when:  
+  - Creating a symlink.  
+  - Daily modification (once/day).  
 
-## TypeScript Configuration
+### Git & GitHub
+- Entire `~/.dotsx` is a Git repo.  
+- Remote required: GitHub via **SSH only**.  
+- Integrated commands:  
+  - `dotsx git sync` → add + commit + push.  
+  - `dotsx git pull` → pull + check symlinks.  
 
-- Uses path aliases: `@/*` maps to `./src/*`
-- Bundler module resolution for Bun compatibility
-- Strict TypeScript settings enabled
-- Global types defined in `src/types/types.d.ts`
+---
 
-## Development Notes
+## 🧩 Code Interfaces
 
-- Uses Biome for linting/formatting with custom rules
-- Console.log is allowed for CLI output
-- Template files in `templates/` directory provide initial configurations
-- The CLI tool becomes a single executable binary `dotsx` when built
+### Domain & PackageManager
+```ts
+export interface Domain {
+  name: string;
+  type: DomainType;
+  distro: string[] | null;
+  packageManagers?: Record<string, PackageManagerConfig>;
+  symlinkPaths?: Partial<Record<Family, string[]>>;
+  defaultContent?: string;
+}
+
+export interface PackageManagerConfig {
+  configPath: string;
+  install: string;
+  remove: string;
+  status: string;
+  defaultContent: string;
+}
+```
+
+### Example: VSCode
+```ts
+export const vscodeDomain: Domain = {
+  name: 'vscode',
+  type: 'ide',
+  distro: null,
+  symlinkPaths: {
+    linux: [
+      '~/.config/Code/User/settings.json',
+      '~/.config/Code/User/keybindings.json',
+      '~/.config/Code/User/snippets',
+    ],
+    macos: [
+      '~/Library/Application Support/Code/User/snippets',
+      '~/Library/Application Support/Code/User/keybindings.json',
+      '~/Library/Application Support/Code/User/settings.json',
+    ],
+  },
+};
+```
+
+### Example: Debian + package managers
+```ts
+export const debianDomain: Domain = {
+  name: 'debian',
+  distro: ['debian', 'ubuntu'],
+  type: 'os',
+  packageManagers: {
+    apt: {
+      configPath: DOTSX.OS.DEBIAN.APT,
+      install: 'sudo apt install -y %s',
+      remove: 'sudo apt remove -y %s',
+      status: 'dpkg -s %s',
+      defaultContent: defaultPackageManagersContent('APT'),
+    },
+    snap: {
+      configPath: DOTSX.OS.DEBIAN.SNAP,
+      install: 'sudo snap install %s',
+      remove: 'sudo snap remove %s',
+      status: 'snap list | grep -w "%s"',
+      defaultContent: defaultPackageManagersContent('Snap'),
+    },
+    flatpak: {
+      configPath: DOTSX.OS.DEBIAN.FLATPAK,
+      install: 'flatpak install -y %s',
+      remove: 'flatpak uninstall -y %s',
+      status: 'flatpak list | grep -w "%s"',
+      defaultContent: defaultPackageManagersContent('Flatpak'),
+    },
+  },
+};
+```
+
+---
+
+## 🔄 Workflows
+
+### Flow: Initialization with remote repo
+**Trigger:** `~/.dotsx` does not exist, user provides GitHub URL.  
+**Steps:**  
+1. Clone repo into `~/.dotsx`.  
+2. Validate structure.  
+3. Create missing folders/files.  
+**Notes:** GitHub SSH required.  
+
+### Flow: Manual init without repo
+**Trigger:** first setup without repo.  
+**Steps:**  
+1. Create folder `~/.dotsx`.  
+2. Init local Git (`git init`).  
+3. Ask for remote in CLI.  
+4. Push first commit if requested (`git push --set-upstream origin main`).  
+
+### Flow: Local add/modify
+**Trigger:** symlink add, file edit, package add.  
+**Steps:**  
+1. dotsx makes an automatic backup.  
+2. User runs `dotsx git sync` =  
+   - `git add -A`  
+   - `git commit -m "update <path> [auto]"`  
+   - `git push`  
+
+### Flow: Pulling remote changes
+**Trigger:** multi-machine usage.  
+**Steps:**  
+1. Run `dotsx git pull`.  
+2. Auto-merge/rebase if possible.  
+3. Verify symlinks, repair if needed.  
+
+### Flow: Conflict multi-machine
+**Trigger:** 2 machines edit same file.  
+**Steps:**  
+1. `git pull` → conflict.  
+2. dotsx asks user to resolve manually.  
+3. After resolution: `dotsx check` to validate.  
+
+### Flow: Restore
+**Trigger:** `~/.dotsx` deleted/corrupted.  
+**Steps:**  
+1. Check `~/.backup.dotsx`.  
+2. If available → restore.  
+3. Else → re-clone GitHub repo.  
+4. Rebuild symlinks.  
+
+---
+
+## ⚠️ Constraints & Limitations
+- GitHub connection only via **SSH**.  
+- No automatic conflict resolution.  
+- Config paths are **hardcoded** (not dynamic).  
+- Maximum 7 backups per file.  

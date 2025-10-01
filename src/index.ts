@@ -1,12 +1,16 @@
 #!/usr/bin/env bun
 
-import { intro, select } from '@clack/prompts';
+import { intro, select, spinner } from '@clack/prompts';
 import { binCommand } from './commands/bin';
+import { doctorCommand } from './commands/doctor';
 import { gitCommand } from './commands/git';
-import { gitInitCommand } from './commands/git-init';
+import { gitCloneCommand } from './commands/git-clone';
 import { initCommand } from './commands/init';
-import { linkCommand } from './commands/link';
-import { packageCommand } from './commands/package';
+import { packageCommand } from './commands/os';
+import { recoverCommand } from './commands/recover';
+import { repairCommand } from './commands/repair';
+import { symlinkCommand } from './commands/symlink';
+import { BackupLib } from './lib/backup';
 import { ConsoleLib } from './lib/console';
 import { DOTSX } from './lib/constants';
 import { createDomainCommand } from './lib/domain-factory';
@@ -29,63 +33,102 @@ const terminalCommand = createDomainCommand({
 async function main() {
   intro('🚀 DotsX CLI');
 
-  const osInfo = SystemLib.getOsInfo();
-  await ConsoleLib.displayInfo();
+  await ConsoleLib.printSystemInfo();
+  await ConsoleLib.printDotsxState();
+  await ConsoleLib.printGitInfo();
 
-  const isInitialized = DotsxInfoLib.isInitialized();
+  const {
+    isInitialized,
+    isAllInitialized,
+    hasBackups,
+    isBinInitialized,
+    isIdeInitialized,
+    isOsInitialized,
+    isTerminalInitialized,
+  } = DotsxInfoLib.getDotsxState();
+
+  // Perform daily backup check if dotsx is initialized
+  if (isInitialized) {
+    await BackupLib.performDailyBackupCheck();
+  }
 
   if (!isInitialized) {
+    const options = [
+      {
+        value: 'scratch',
+        label: '🌱 From scratch',
+        hint: 'Create a new ~/.dotsx directory with all the configurations',
+      },
+      {
+        value: 'git',
+        label: '🔧 From Git',
+        hint: 'Clone a git repository into ~/.dotsx, git must be configured',
+      },
+    ];
+
+    if (hasBackups) {
+      options.unshift({
+        value: 'recover',
+        label: '🔄 Recover from backups',
+        hint: 'Restore files from ~/.backup.dotsx (RECOMMENDED)',
+      });
+    }
+
     const action = await select({
       message: 'Welcome to DotsX! How do you want to initialize your configuration?',
-      options: [
-        {
-          value: 'scratch',
-          label: '🌱 From scratch',
-          hint: 'Create a new ~/.dotsx directory with all the configurations',
-        },
-        {
-          value: 'git',
-          label: '🔧 From Git',
-          hint: 'Clone a git repository into ~/.dotsx, git must be configured',
-        },
-      ],
+      options,
     });
 
     if (action === 'scratch') {
       await initCommand.execute();
     } else if (action === 'git') {
-      await gitInitCommand.execute();
+      await gitCloneCommand.execute();
+    } else if (action === 'recover') {
+      await recoverCommand.execute();
     }
   } else {
-    const action = await select({
-      message: 'Welcome!',
-      options: [
-        { value: 'link', label: '📋 Symlinks', hint: 'Create symlinks for files and directories' },
-        { value: 'git', label: '🔧 Git', hint: 'Manage Git repository and synchronization' },
-        {
-          value: 'package',
-          label: `📦 ${osInfo.distro || osInfo.family} packages`,
-          hint: 'Install, remove, and manage packages',
-        },
-        { value: 'bin', label: "🚀 Bin's scripts", hint: 'Manage bin scripts and aliases' },
-        { value: 'ide', label: '💻 IDE configs', hint: 'Manage your IDEs settings' },
-        { value: 'terminal', label: '🖥️  Terminal configs', hint: 'Manage your terminal configurations' },
-      ],
-    });
+    const osInfo = SystemLib.getOsInfo();
 
-    if (action === 'package') {
-      await packageCommand.execute();
-    } else if (action === 'link') {
-      await linkCommand.execute();
-    } else if (action === 'bin') {
-      await binCommand.execute();
-    } else if (action === 'terminal') {
-      await terminalCommand.execute();
-    } else if (action === 'ide') {
-      await ideCommand.execute();
-    } else if (action === 'git') {
-      await gitCommand.execute();
+    const options = [
+      { value: 'symlink', label: '📋 Symlinks', hint: 'Create symlinks for files and directories' },
+      { value: 'git', label: '🔧 Git', hint: 'Manage Git repository and synchronization' },
+      { value: 'doctor', label: '🩺 Doctor', hint: 'Run full diagnostics and show all configurations' },
+    ];
+
+    if (!isAllInitialized) {
+      options.push({ value: 'repair', label: '🔄 Repair', hint: 'Repair DotsX configuration' });
     }
+    if (hasBackups) {
+      options.push({ value: 'recover', label: '🗄️  Recover', hint: 'Restore files from backups' });
+    }
+    if (isOsInitialized) {
+      options.push({
+        value: 'pkg',
+        label: `📦 ${osInfo.distro || osInfo.family} packages`,
+        hint: 'Install, remove, and manage packages',
+      });
+    }
+    if (isBinInitialized) {
+      options.push({ value: 'bin', label: "🚀 Bin's scripts", hint: 'Manage bin scripts and aliases' });
+    }
+    if (isIdeInitialized) {
+      options.push({ value: 'ide', label: '💻 IDE configs', hint: 'Manage your IDEs settings' });
+    }
+    if (isTerminalInitialized) {
+      options.push({ value: 'terminal', label: '🖥️  Terminal configs', hint: 'Manage your terminal configurations' });
+    }
+
+    const action = await select({ message: 'Welcome!', options });
+
+    if (action === 'doctor') await doctorCommand.execute();
+    else if (action === 'pkg') await packageCommand.execute();
+    else if (action === 'symlink') await symlinkCommand.execute();
+    else if (action === 'recover') await recoverCommand.execute();
+    else if (action === 'repair') await repairCommand.execute();
+    else if (action === 'bin') await binCommand.execute();
+    else if (action === 'terminal') await terminalCommand.execute();
+    else if (action === 'ide') await ideCommand.execute();
+    else if (action === 'git') await gitCommand.execute();
   }
 }
 
