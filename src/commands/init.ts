@@ -1,148 +1,147 @@
-import { resolve } from 'node:path';
-import { log, multiselect, type Option } from '@clack/prompts';
+import { groupMultiselect, isCancel, log, type Option, outro, spinner } from '@clack/prompts';
+import type { DotsxOsPath } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
-import { DotsxInfoLib, SystemLib } from '@/lib/system';
-import { getDomainByDistro, getDomainByName, getDomainsByType } from '@/old';
-import { DOTSX, DOTSX_PATH } from '@/old/constants';
-import type { Domain, Family, OsInfo } from '@/types';
+import { type OsInfo, SystemLib } from '@/lib/system';
+import { getSuggestionsByOs, type Suggestion } from '@/suggestions';
+import { binCommand } from './bin';
+
+interface FoundPath {
+  suggestedPath: string;
+  type: 'file' | 'directory';
+}
+
+type GroupMultiselectOptions = Record<string, Option<FoundPath>[]>;
 
 export const initCommand = {
-  async execute() {
+  async execute(dotsxPath: DotsxOsPath) {
     try {
       const osInfo = SystemLib.getOsInfo();
 
       log.info(`🖥️  Initializing on a ${osInfo.family} ${osInfo.distro} ${osInfo.release} system...`);
 
-      const availableTerminalDomains = getDomainsByType('terminal');
-      const terminals = await multiselect({
-        message: 'What terminals do you want to initialize?',
+      const availableSuggestions = getSuggestionsByOs(osInfo.family);
+      const existingPaths = this.getExistingSuggestedPaths(availableSuggestions, osInfo);
+      const options = this.buildAppBasedOptions(existingPaths, availableSuggestions);
+
+      // Wait for the terminal to be ready, this is a workaround to avoid the prompt being canceled
+      await new Promise((resolve) => setTimeout(resolve, 1));
+
+      const selectedPaths = await groupMultiselect({
+        message: 'Which configuration files do you want to manage with dotsx?',
+        options,
         required: false,
-        options: availableTerminalDomains.map((domain) => ({
-          value: domain.name,
-          label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
-          hint: domain.symlinkPaths?.[osInfo.family]?.join(', '),
-        })) satisfies Option<string>[],
       });
 
-      const availableIdeDomains = getDomainsByType('ide');
-      const ides = await multiselect({
-        message: 'What IDEs do you want to initialize?',
-        required: false,
-        options: availableIdeDomains.map((domain) => ({
-          value: domain.name,
-          label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
-          hint: domain.symlinkPaths?.[osInfo.family]?.join(', '),
-        })) satisfies Option<string>[],
-      });
-
-      await this.initOs(osInfo);
-
-      if (Array.isArray(terminals)) {
-        for (const terminalName of terminals) {
-          const domain = getDomainByName(terminalName);
-          if (domain) {
-            await this.initDomainConfig(domain, osInfo.family, DOTSX.TERMINAL.PATH);
-          }
-        }
+      if (isCancel(selectedPaths)) {
+        log.warn('Initialization cancelled');
+        return outro('👋 See you next time!');
       }
 
-      if (Array.isArray(ides)) {
-        for (const ideName of ides) {
-          const domain = getDomainByName(ideName);
-          if (domain) {
-            await this.initDomainConfig(domain, osInfo.family, DOTSX.IDE.PATH);
-          }
-        }
-      }
-
-      await this.initBin();
-      await this.initSymlinks();
-
-      log.success(`🎉 Initialized in: ${DOTSX_PATH}`);
+      await this.handleDotsxDirectoryCreation(dotsxPath);
+      binCommand.writeAliasToRcFile(dotsxPath.binAliases);
+      await this.createSelectedPaths(selectedPaths);
     } catch (error) {
-      log.error(`Error during initialization: ${String(error)}`);
+      log.error(`Error initializing: ${error}`);
     }
   },
 
-  async initOs(osInfo: OsInfo) {
-    const domain = osInfo.distro ? getDomainByDistro(osInfo.distro) : getDomainByName(osInfo.family);
+  getExistingSuggestedPaths(availableSuggestions: Suggestion[], osInfo: OsInfo) {
+    const s = spinner();
+    s.start('Checking suggested paths...');
 
-    if (!domain) {
-      log.error(`No OS domain found for ${osInfo.family}`);
-      return;
-    }
+    const existingPaths: Record<string, FoundPath[]> = {};
 
-    if (!domain.packageManagers) {
-      log.error(`No package managers defined for ${domain.name}`);
-      return;
-    }
+    try {
+      availableSuggestions.forEach((suggestion) => {
+        const paths = suggestion.pathsToCheck[osInfo.family];
+        if (!paths) return;
 
-    log.info(`📦 Configuring ${domain.name} package management...`);
-    const created: string[] = [];
+        const foundPaths: FoundPath[] = [];
 
-    const osDirPath = resolve(DOTSX.OS.PATH, domain.name);
-    FileLib.createDirectory(osDirPath);
+        paths.forEach((suggestedPath) => {
+          if (FileLib.isFile(suggestedPath)) {
+            foundPaths.push({ suggestedPath, type: 'file' });
+          } else if (FileLib.isDirectory(suggestedPath)) {
+            foundPaths.push({ suggestedPath, type: 'directory' });
+          }
+        });
 
-    for (const config of Object.values(domain.packageManagers)) {
-      const { configPath, defaultContent } = config;
+        if (foundPaths.length > 0) {
+          existingPaths[suggestion.name] = foundPaths;
+        }
+      });
 
-      if (!FileLib.isPathExists(configPath)) {
-        FileLib.createFile(configPath, defaultContent);
-        created.push(FileLib.getDisplayPath(configPath));
-      } else {
-        log.warn(`Already exists: ${FileLib.getDisplayPath(configPath)}`);
-      }
-    }
-
-    created.length > 0 && log.success(`Created:\n${created.join('\n')}`);
-  },
-
-  async initDomainConfig(domain: Domain, currentOs: Family, basePath: string) {
-    if (!domain.symlinkPaths?.[currentOs]) {
-      log.error(`No symlink paths for ${domain.name} on ${currentOs}`);
-      return;
-    }
-
-    log.info(`📁 Initializing ${domain.name} configurations...`);
-
-    const imported: { systemPath: string; dotsxPath: string }[] = [];
-    const notFound: string[] = [];
-
-    for (const symlinkPath of domain.symlinkPaths[currentOs]) {
-      const systemPath = FileLib.expandPath(symlinkPath);
-      const dotsxPath = DotsxInfoLib.getDotsxPath(domain, symlinkPath, basePath);
-
-      if (FileLib.isPathExists(systemPath)) {
-        FileLib.safeSymlink(systemPath, dotsxPath);
-        imported.push({ systemPath: FileLib.getDisplayPath(systemPath), dotsxPath: FileLib.getDisplayPath(dotsxPath) });
-      } else {
-        notFound.push(FileLib.getDisplayPath(systemPath));
-      }
-    }
-
-    imported.length > 0 &&
-      log.success(
-        `Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`,
-      );
-    notFound.length > 0 && log.warning(`Ignored because not found:\n${notFound.join('\n')}`);
-  },
-
-  async initBin() {
-    if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
-      FileLib.createDirectory(DOTSX.BIN.PATH);
-      FileLib.createFile(DOTSX.BIN.ALIAS);
-      log.success(`Bin directory created: ${DOTSX.BIN.PATH}`);
-    } else {
-      log.success(`Bin directory already exists: ${DOTSX.BIN.PATH}`);
+      s.stop(`Found ${Object.values(existingPaths).flat().length} existing paths`);
+      return existingPaths;
+    } catch (error) {
+      s.stop(`Error checking suggested paths: ${error}`);
+      throw error;
     }
   },
 
-  async initSymlinks() {
-    if (!FileLib.isDirectory(DOTSX.SYMLINKS)) {
-      FileLib.createDirectory(DOTSX.SYMLINKS);
-      log.success(`Symlinks directory created: ${DOTSX.SYMLINKS}`);
-    } else {
-      log.success(`Symlinks directory already exists: ${DOTSX.SYMLINKS}`);
+  buildAppBasedOptions(
+    existingPaths: Record<string, FoundPath[]>,
+    availableSuggestions: Suggestion[],
+  ): GroupMultiselectOptions {
+    const options: GroupMultiselectOptions = {};
+
+    availableSuggestions.forEach((suggestion) => {
+      const foundPaths = existingPaths[suggestion.name];
+
+      if (!foundPaths || foundPaths.length === 0) return;
+
+      options[suggestion.name] = [];
+
+      foundPaths.forEach((path) => {
+        const fileName = path.suggestedPath;
+        const appOptions = options[suggestion.name];
+        if (appOptions) {
+          appOptions.push({
+            value: { suggestedPath: path.suggestedPath, type: path.type },
+            label: fileName,
+          });
+        }
+      });
+    });
+
+    return options;
+  },
+
+  async handleDotsxDirectoryCreation(dotsxPath: DotsxOsPath) {
+    const s = spinner();
+    s.start(`Creating ${dotsxPath.baseOs} directories and files...`);
+    try {
+      FileLib.Directory.create(dotsxPath.baseOs);
+      FileLib.File.create(dotsxPath.config);
+      FileLib.Directory.create(dotsxPath.bin);
+      FileLib.File.create(dotsxPath.binAliases);
+      FileLib.Directory.create(dotsxPath.packagesManager);
+      FileLib.File.create(dotsxPath.packagesManagerConfig);
+      FileLib.Directory.create(dotsxPath.symlinks);
+
+      s.stop(`${dotsxPath.baseOs} directories and files created successfully`);
+    } catch (error) {
+      s.stop(`Error creating ${dotsxPath.baseOs} directories and files: ${error}`);
+      throw error;
+    }
+  },
+
+  async createSelectedPaths(selectedPaths: FoundPath[]) {
+    const s = spinner({ indicator: 'timer' });
+    s.start(`Creating selected paths...`);
+    try {
+      selectedPaths.forEach((path) => {
+        if (path.type === 'file') {
+          FileLib.File.create(path.suggestedPath);
+        } else if (path.type === 'directory') {
+          FileLib.Directory.create(path.suggestedPath);
+        }
+        s.message(`${path.suggestedPath} created successfully`);
+      });
+      s.stop(`Selected paths created successfully`);
+    } catch (error) {
+      s.stop(`Error creating selected paths: ${error}`);
+      throw error;
     }
   },
 };

@@ -33,15 +33,6 @@ export type KnownLinuxDistro =
 
 export type OsFamily = 'linux' | 'windows' | 'macos' | 'bsd' | 'unix' | 'unknown';
 
-type SuggestionType = 'ide' | 'terminal' | 'ai' | 'others';
-
-export interface Suggestion {
-  name: string;
-  type: SuggestionType;
-  hint: string;
-  pathsToCheck: Partial<Record<OsFamily | KnownLinuxDistro, string[]>>;
-}
-
 export type Link = {
   systemPath: string;
   dotsxPath: string;

@@ -1,7 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
 import type { KnownLinuxDistro, OsFamily } from '@/types';
-import { FileLib } from './file';
 
 function getDOTSX_PATH(): string {
   return process.env.DOTSX_PATH || path.resolve(process.env.HOME || os.homedir(), '.dotsx');
@@ -21,10 +20,6 @@ export interface DotsxOsPath {
 
 export function resolveDotsxOsPath(os: OsFamily | KnownLinuxDistro): DotsxOsPath {
   const baseOsPath = path.resolve(DOTSX_PATH, os);
-
-  if (!FileLib.isDirectory(baseOsPath)) {
-    throw new Error(`Directory ${baseOsPath} does not exist, please run "dotsx init"`);
-  }
 
   return {
     baseOs: baseOsPath,

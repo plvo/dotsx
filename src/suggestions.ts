@@ -1,6 +1,23 @@
-import type { Suggestion } from './types';
+import type { KnownLinuxDistro, OsFamily } from './types';
 
-export const vscodeSuggestion: Suggestion = {
+type SuggestionType = 'ide' | 'terminal' | 'ai' | 'others';
+
+export interface Suggestion {
+  name: string;
+  type: SuggestionType;
+  hint: string;
+  pathsToCheck: Partial<Record<OsFamily | KnownLinuxDistro, string[]>>;
+}
+
+export function getSuggestionsByType(type: SuggestionType) {
+  return Object.values(suggestions).filter((suggestion) => suggestion.type === type);
+}
+
+export function getSuggestionsByOs(os: OsFamily | KnownLinuxDistro) {
+  return Object.values(suggestions).filter((suggestion) => suggestion.pathsToCheck[os]);
+}
+
+const vscodeSuggestion: Suggestion = {
   name: 'vscode',
   type: 'ide',
   hint: 'VSCode is not installed',
@@ -18,7 +35,7 @@ export const vscodeSuggestion: Suggestion = {
   },
 };
 
-export const cursorSuggestion: Suggestion = {
+const cursorSuggestion: Suggestion = {
   name: 'cursor',
   type: 'ide',
   hint: 'Cursor is not installed',
@@ -36,7 +53,7 @@ export const cursorSuggestion: Suggestion = {
   },
 };
 
-export const zshSuggestion: Suggestion = {
+const zshSuggestion: Suggestion = {
   name: 'zsh',
   type: 'terminal',
   hint: 'Zsh is not installed',
@@ -46,7 +63,7 @@ export const zshSuggestion: Suggestion = {
   },
 };
 
-export const tmuxSuggestion: Suggestion = {
+const tmuxSuggestion: Suggestion = {
   name: 'tmux',
   type: 'terminal',
   hint: 'Tmux is not installed',
@@ -56,7 +73,7 @@ export const tmuxSuggestion: Suggestion = {
   },
 };
 
-export const bashSuggestion: Suggestion = {
+const bashSuggestion: Suggestion = {
   name: 'bash',
   type: 'terminal',
   hint: 'Bash is not installed',
@@ -64,4 +81,37 @@ export const bashSuggestion: Suggestion = {
     linux: ['~/.bashrc'],
     macos: ['~/.bashrc'],
   },
+};
+
+const claudeCodeSuggestion: Suggestion = {
+  name: 'claude-code',
+  type: 'ai',
+  hint: 'Claude Code is not configured',
+  pathsToCheck: {
+    linux: [
+      '~/.claude/CLAUDE.md',
+      '~/.claude/commands',
+      '~/.claude/agents',
+      '~/.claude/scripts',
+      '~/.claude/settings.json',
+      '~/.claude/settings.local.json',
+    ],
+    macos: [
+      '~/.claude/CLAUDE.md',
+      '~/.claude/commands',
+      '~/.claude/agents',
+      '~/.claude/scripts',
+      '~/.claude/settings.json',
+      '~/.claude/settings.local.json',
+    ],
+  },
+};
+
+export const suggestions = {
+  vscodeSuggestion,
+  cursorSuggestion,
+  zshSuggestion,
+  tmuxSuggestion,
+  bashSuggestion,
+  claudeCodeSuggestion,
 };

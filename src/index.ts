@@ -1,15 +1,15 @@
-#!/usr/bin/env bun
+// #!/usr/bin/env bun
 
 import path from 'node:path';
 import { intro, isCancel, outro, select } from '@clack/prompts';
 import { binCommand } from './commands/bin';
-import { doctorCommand } from './commands/doctor';
-import { gitCommand } from './commands/git';
-import { gitCloneCommand } from './commands/git-clone';
+// import { doctorCommand } from './commands/doctor';
+// import { gitCommand } from './commands/git';
+// import { gitCloneCommand } from './commands/git-clone';
 import { initCommand } from './commands/init';
 import { packageCommand } from './commands/packages';
-import { recoverCommand } from './commands/recover';
-import { symlinkCommand } from './commands/symlink';
+// import { recoverCommand } from './commands/recover';
+// import { symlinkCommand } from './commands/symlink';
 import { ConsoleLib } from './lib/console';
 import { resolveDotsxOsPath } from './lib/constants';
 import { FileLib } from './lib/file';
@@ -18,12 +18,12 @@ import { SystemLib } from './lib/system';
 async function main() {
   intro('🚀 DotsX CLI');
 
-  await ConsoleLib.printSystemInfo();
-  await ConsoleLib.printGitInfo();
-
   const osInfo = SystemLib.getOsInfo();
   const dotsxPath = resolveDotsxOsPath(osInfo.distro || osInfo.family);
   const isInitialized = FileLib.isExists(dotsxPath.baseOs);
+
+  await ConsoleLib.printSystemInfo();
+  await ConsoleLib.printGitInfo(dotsxPath);
 
   if (!isInitialized) {
     const action = await select({
@@ -39,9 +39,9 @@ async function main() {
     }
 
     if (action === 'scratch') {
-      await initCommand.execute();
+      await initCommand.execute(dotsxPath);
     } else if (action === 'git') {
-      await gitCloneCommand.execute();
+      //   await gitCloneCommand.execute();
     }
   } else {
     const action = await select({
@@ -60,12 +60,12 @@ async function main() {
       return outro('👋 See you next time!');
     }
 
-    if (action === 'doctor') await doctorCommand.execute();
+    // if (action === 'doctor') await doctorCommand.execute();
     else if (action === 'pkg') await packageCommand.execute(osInfo.distro || osInfo.family, dotsxPath.packagesManager);
-    else if (action === 'symlink') await symlinkCommand.execute();
-    else if (action === 'recover') await recoverCommand.execute();
-    else if (action === 'bin') await binCommand.execute();
-    else if (action === 'git') await gitCommand.execute();
+    // else if (action === 'symlink') await symlinkCommand.execute();
+    // else if (action === 'recover') await recoverCommand.execute();
+    // else if (action === 'bin') await binCommand.execute();
+    // else if (action === 'git') await gitCommand.execute();
   }
 }
 

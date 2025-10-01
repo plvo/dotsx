@@ -1,5 +1,5 @@
 import { log, spinner } from '@clack/prompts';
-import { DOTSX_PATH } from '../old/constants';
+import type { DotsxOsPath } from './constants';
 import { GitLib } from './git';
 import { SystemLib } from './system';
 
@@ -19,12 +19,12 @@ export const ConsoleLib = {
 \t📄 ${info.rcFile} (${info.shell})`);
   },
 
-  async printGitInfo() {
+  async printGitInfo(dotsxPath: DotsxOsPath) {
     const s = spinner({ indicator: 'dots' });
     s.start('Git info check...');
 
     try {
-      const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
+      const gitInfo = await GitLib.getRepositoryInfo(dotsxPath.baseOs);
 
       if (!gitInfo.isRepository) {
         s.stop('📦 Git: Not initialized');

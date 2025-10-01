@@ -2,7 +2,6 @@ import { exec } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { GitInfo, GitValidationResult } from '@/types';
-import { DOTSX, DOTSX_PATH } from '../old/constants';
 import { FileLib } from './file';
 
 const execAsync = promisify(exec);
@@ -251,39 +250,6 @@ export const GitLib = {
     } catch (error) {
       throw new Error(`Failed to pull from remote: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  },
-
-  validateDotsxStructure(dirPath: string): GitValidationResult {
-    const requiredDirectories = [
-      DOTSX.BIN.PATH.replace(DOTSX_PATH, '').substring(1),
-      DOTSX.IDE.PATH.replace(DOTSX_PATH, '').substring(1),
-      DOTSX.OS.PATH.replace(DOTSX_PATH, '').substring(1),
-      DOTSX.TERMINAL.PATH.replace(DOTSX_PATH, '').substring(1),
-      DOTSX.SYMLINKS.replace(DOTSX_PATH, '').substring(1),
-    ];
-
-    const missingDirectories: string[] = [];
-
-    for (const dir of requiredDirectories) {
-      const fullPath = path.resolve(dirPath, dir);
-      if (!FileLib.isPathExists(fullPath)) {
-        missingDirectories.push(dir);
-      }
-    }
-
-    if (missingDirectories.length === 0) {
-      return {
-        isValid: true,
-        missingDirectories: [],
-        message: 'Repository structure is complete',
-      };
-    }
-
-    return {
-      isValid: false,
-      missingDirectories,
-      message: `Missing directories: ${missingDirectories.join(', ')}`,
-    };
   },
 
   isGitHubUrl(url: string): boolean {

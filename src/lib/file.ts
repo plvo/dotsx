@@ -1,25 +1,25 @@
 import fs from 'node:fs';
-import { homedir } from 'node:os';
+import os from 'node:os';
 import path from 'node:path';
 import { log } from '@clack/prompts';
 
 export namespace FileLib {
-  export const isExists = (p: string) => fs.existsSync(p) || false;
-  export const isFile = (p: string) => isExists(p) && fs.statSync(p).isFile();
-  export const isDirectory = (p: string) => isExists(p) && fs.statSync(p).isDirectory();
-  export const isSymLink = (p: string) => isExists(p) && fs.lstatSync(p).isSymbolicLink();
+  export const isExists = (p: string) => fs.existsSync(expand(p)) || false;
+  export const isFile = (p: string) => isExists(p) && fs.statSync(expand(p)).isFile();
+  export const isDirectory = (p: string) => isExists(p) && fs.statSync(expand(p)).isDirectory();
+  export const isSymLink = (p: string) => isExists(p) && fs.lstatSync(expand(p)).isSymbolicLink();
 
   export const expand = (inputPath: string): string => {
-    if (inputPath.startsWith('~/')) return path.resolve(homedir(), inputPath.slice(2));
-    if (inputPath.startsWith('__home__/')) return path.resolve(homedir(), inputPath.slice(9));
-    if (inputPath === '__home__') return homedir();
+    if (inputPath.startsWith('~/')) return path.resolve(os.homedir(), inputPath.slice(2));
+    if (inputPath.startsWith('__home__/')) return path.resolve(os.homedir(), inputPath.slice(9));
+    if (inputPath === '__home__') return os.homedir();
     return inputPath;
   };
 
-  export const display = (inputPath: string): string => inputPath.replace(homedir(), '__home__');
+  export const display = (inputPath: string): string => inputPath.replace(os.homedir(), '__home__');
 
   export namespace File {
-    export const isExecutable = (p: string) => isFile(p) && (fs.statSync(p).mode & 0o100) !== 0;
+    export const isExecutable = (p: string) => isFile(p) && (fs.statSync(expand(p)).mode & 0o100) !== 0;
 
     export const create = (filePath: string, content = '') => {
       if (!isExists(filePath)) {
@@ -29,7 +29,7 @@ export namespace FileLib {
     };
 
     export const deleteFile = (p: string) => {
-      if (isFile(p)) fs.rmSync(p);
+      if (isFile(p)) fs.rmSync(expand(p));
     };
 
     export const read = (p: string): string => fs.readFileSync(p, 'utf8');
@@ -47,28 +47,31 @@ export namespace FileLib {
     };
 
     export const write = (p: string, content: string) => {
-      if (isFile(p)) fs.writeFileSync(p, content);
+      if (isFile(p)) fs.writeFileSync(expand(p), content);
     };
 
-    export const append = (p: string, content: string) => {
-      if (isFile(p)) fs.appendFileSync(p, `${content}\n`);
+    export const writeAppend = (p: string, content: string) => {
+      if (isFile(p)) fs.appendFileSync(expand(p), `${content}\n`);
     };
 
     export const writeReplacing = (p: string, newContent: string, contentToReplace: string) => {
-      if (!isFile(p)) return;
+      if (!isFile(expand(p))) return;
       try {
-        const fileContent = read(p);
+        const fileContent = read(expand(p));
         const updatedContent = fileContent.replace(contentToReplace, newContent);
-        write(p, updatedContent);
+        write(expand(p), updatedContent);
       } catch (error) {
         log.error(`Error writing to file ${p}: ${error}`);
       }
     };
 
     export const makeExecutable = (p: string) => {
-      if (isFile(p)) fs.chmodSync(p, 0o755);
+      if (isFile(p)) fs.chmodSync(expand(p), 0o755);
     };
 
+    /**
+     * @example deleteExtension('script.sh.txt') // 'script.sh'
+     */
     export const deleteExtension = (filename: string): string => {
       const idx = filename.split('').reverse().join('').indexOf('.');
       return idx !== -1 ? filename.substring(0, filename.length - idx - 1) : filename;
@@ -76,7 +79,7 @@ export namespace FileLib {
 
     export const copy = (src: string, dest: string) => {
       try {
-        if (!isFile(src)) create(src);
+        if (!isFile(expand(src))) create(src);
         fs.copyFileSync(src, dest);
       } catch (error) {
         log.error(`Error copying file: ${error}`);
@@ -86,20 +89,20 @@ export namespace FileLib {
 
   export namespace Directory {
     export const create = (dirPath: string) => {
-      if (!isExists(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
+      if (!isExists(expand(dirPath))) fs.mkdirSync(expand(dirPath), { recursive: true });
     };
 
     export const deleteDirectory = (p: string) => {
-      if (isDirectory(p)) fs.rmdirSync(p, { recursive: true });
+      if (isDirectory(expand(p))) fs.rmdirSync(expand(p), { recursive: true });
     };
 
     export const read = (p: string): string[] => {
-      if (!isDirectory(p)) return [];
-      return fs.readdirSync(p);
+      if (!isDirectory(expand(p))) return [];
+      return fs.readdirSync(expand(p));
     };
 
     export const copy = (src: string, dest: string) => {
-      if (!isExists(dest)) create(dest);
+      if (!isExists(expand(dest))) create(expand(dest));
 
       for (const item of fs.readdirSync(src)) {
         const srcPath = path.resolve(src, item);
@@ -108,10 +111,10 @@ export namespace FileLib {
         const stat = fs.statSync(srcPath);
 
         if (stat.isDirectory()) {
-          copy(srcPath, destPath);
+          copy(expand(srcPath), expand(destPath));
         } else {
           try {
-            File.copy(srcPath, destPath);
+            File.copy(expand(srcPath), expand(destPath));
           } catch (err) {
             log.error(`Error copying file ${item}: ${err}`);
           }
