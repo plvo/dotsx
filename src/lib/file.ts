@@ -1,7 +1,9 @@
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { log } from '@clack/prompts';
+import type { OsInfo } from './system';
 
 export namespace FileLib {
   export const isExists = (p: string) => fs.existsSync(expand(p)) || false;
@@ -134,5 +136,48 @@ export namespace FileLib {
         }
       }
     };
+
+    // export const protectDir = (path: string, osInfo: OsInfo) => {
+    //   let command = '';
+    //   switch (osInfo.family) {
+    //     case 'linux':
+    //       command = `chmod +t "${path}"`;
+    //       break;
+    //     case 'macos':
+    //     case 'bsd':
+    //       command = `chmod +a "user:$(whoami) deny delete" "${path}"`;
+    //       break;
+    //     case 'windows':
+    //       command = `icacls "${path}" /deny %USERNAME%:(DE)`;
+    //       break;
+
+    //     default:
+    //       throw new Error(`Unsupported OS family: ${osInfo.family}`);
+    //   }
+
+    //   execSync(command, { stdio: 'inherit' });
+    // };
+
+    // export const unprotectDir = (path: string, osInfo: OsInfo) => {
+    //   let command = '';
+    //   switch (osInfo.family) {
+    //     case 'linux':
+    //       command = `chmod -t "${path}"`;
+    //       break;
+    //     case 'macos':
+    //     case 'bsd':
+    //       command = `chmod -a "user:$(whoami) deny delete" "${path}" || true`;
+    //       break;
+
+    //     case 'windows':
+    //       command = `icacls "${path}" /remove:d %USERNAME%`;
+    //       break;
+
+    //     default:
+    //       throw new Error(`Unsupported OS family: ${osInfo.family}`);
+    //   }
+
+    //   execSync(command, { stdio: 'inherit' });
+    // };
   }
 }

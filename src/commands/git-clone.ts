@@ -1,10 +1,9 @@
 import { log, spinner, text } from '@clack/prompts';
+import { DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { GitLib } from '@/lib/git';
-import { DOTSX_PATH } from '@/lib/constants';
-import type { CliCommand } from '@/types';
 
-export const gitCloneCommand: CliCommand = {
+export const gitCloneCommand = {
   async execute() {
     log.step('🔗 Clone DotsX from Existing Repository');
 
@@ -18,17 +17,18 @@ export const gitCloneCommand: CliCommand = {
       const isRepo = await GitLib.isGitRepository(DOTSX_PATH);
 
       if (isRepo) {
-        log.error(`${DOTSX_PATH} is already a Git repository.`);
+        log.warn(`${DOTSX_PATH} is already a Git repository.`);
         log.info('💡 Use "🔗 Manage remote" to connect to a different repository');
         return;
       }
 
-      log.error(`${DOTSX_PATH} already exists and contains files.`);
-      log.warn('⚠️  Cannot clone - this would overwrite your existing configuration!');
-      log.info('💡 To use an existing remote repository:');
-      log.info('   1. Backup your current ~/.dotsx if needed');
-      log.info('   2. Use "🔧 Git" → "🆕 Create new repository" to initialize git');
-      log.info('   3. Then use "🔗 Manage remote" to connect to your remote');
+      log.warn(`${DOTSX_PATH} already exists and contains files.
+⚠️  Cannot clone - this would overwrite your existing configuration!
+💡 To use an existing remote repository:
+1. Backup your current ~/.dotsx if needed
+2. Use "🔧 Git" → "🆕 Create new repository" to initialize git
+3. Then use "🔗 Manage remote" to connect to your remote
+`);
       return;
     }
 
@@ -57,18 +57,6 @@ export const gitCloneCommand: CliCommand = {
     try {
       await GitLib.cloneRepository(repoUrl, DOTSX_PATH);
       s.stop('Repository cloned successfully');
-
-      // Validate structure
-      const validation = GitLib.validateDotsxStructure(DOTSX_PATH);
-
-      if (validation.isValid) {
-        log.success('🎉 DotsX initialized successfully from Git repository!');
-        log.info('All required directories are present.');
-      } else {
-        log.warn('⚠️  Repository structure is incomplete');
-        log.info(validation.message);
-        log.info('💡 Run: dotsx repair');
-      }
 
       const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
       if (gitInfo.repoName) {

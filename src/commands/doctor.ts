@@ -166,7 +166,7 @@ export const doctorCommand = {
       gitStatus += '\n  💡 Run: dotsx git → Manage remote';
     }
 
-    log.step(gitStatus);
+    log.message(gitStatus);
   },
 
   async checkBin(issues: DoctorIssue[], dotsxPath: DotsxOsPath) {
@@ -273,7 +273,7 @@ export const doctorCommand = {
           message: `Broken symlink: ${displayPath}`,
           fixable: true,
           fix: async () => {
-            SymlinkLib.safeSymlink(dotsxOsPath, systemPath, dotsxPath);
+            SymlinkLib.safeSymlink(systemPath, dotsxPath);
           },
         });
       }

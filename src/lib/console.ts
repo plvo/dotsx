@@ -1,5 +1,5 @@
 import { log, spinner } from '@clack/prompts';
-import type { DotsxOsPath } from './constants';
+import { DOTSX_PATH } from './constants';
 import { GitLib } from './git';
 import { SystemLib } from './system';
 
@@ -19,26 +19,26 @@ export const ConsoleLib = {
 \t📄 ${info.rcFile} (${info.shell})`);
   },
 
-  async printGitInfo(dotsxPath: DotsxOsPath) {
+  async printGitInfo() {
     const s = spinner({ indicator: 'dots' });
     s.start('Git info check...');
 
     try {
-      const gitInfo = await GitLib.getRepositoryInfo(dotsxPath.baseOs);
+      const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
 
       if (!gitInfo.isRepository) {
         s.stop('📦 Git: Not initialized');
         return;
       }
 
-      let gitStatus = `📁 ${gitInfo.remoteUrl} (🌿 ${gitInfo.currentBranch})
-\t📝 Last commit: "${gitInfo.lastCommit?.message ?? 'Unknown'}" ${gitInfo.lastCommit?.hash ?? 'Unknown hash'} (${gitInfo.lastCommit?.date ?? 'Unknown date'})`;
+      let gitStatus = `📁 ${gitInfo.remoteUrl ?? 'Unknown remote'} (🌿 ${gitInfo.currentBranch ?? 'Unknown branch'}) (Last Hash: ${gitInfo.lastCommit?.hash ?? 'Unknown hash'}) 
+\t📝 Last commit: "${gitInfo.lastCommit?.message ?? 'Unknown'}" (${gitInfo.lastCommit?.date ?? 'Unknown date'})`;
 
       if (gitInfo.status) {
         const { ahead, behind, hasUncommittedChanges } = gitInfo.status;
 
         if (ahead === 0 && behind === 0 && !hasUncommittedChanges) {
-          gitStatus += '✅ up-to-date';
+          gitStatus += '\n\t✅ up-to-date';
         } else {
           const statusParts = [];
           if (ahead > 0) statusParts.push(`📤 ${ahead} ahead`);

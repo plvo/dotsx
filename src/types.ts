@@ -33,24 +33,6 @@ export type KnownLinuxDistro =
 
 export type OsFamily = 'linux' | 'windows' | 'macos' | 'bsd' | 'unix' | 'unknown';
 
-export type Link = {
-  systemPath: string;
-  dotsxPath: string;
-};
-
-export type AllLinks = {
-  correctSymlinks: Array<Link>;
-  incorrectSymlinks: Array<Link>;
-};
-
-export interface ConfigStatusInfo {
-  status: 'fully_imported' | 'partially_imported' | 'not_imported' | 'incompatible';
-  importedPaths: string[];
-  missingPaths: string[];
-  totalFiles: number;
-  importedFiles: number;
-}
-
 export interface GitInfo {
   isRepository: boolean;
   repoName?: string;
@@ -68,10 +50,4 @@ export interface GitInfo {
     behind: number;
     hasUncommittedChanges: boolean;
   };
-}
-
-export interface GitValidationResult {
-  isValid: boolean;
-  missingDirectories: string[];
-  message: string;
 }

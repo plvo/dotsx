@@ -5,10 +5,9 @@ import { intro, isCancel, outro, select } from '@clack/prompts';
 import { binCommand } from './commands/bin';
 import { doctorCommand } from './commands/doctor';
 import { gitCommand } from './commands/git';
-// import { gitCloneCommand } from './commands/git-clone';
+import { gitCloneCommand } from './commands/git-clone';
 import { initCommand } from './commands/init';
 import { packageCommand } from './commands/packages';
-import { recoverCommand } from './commands/recover';
 import { symlinkCommand } from './commands/symlink';
 import { ConsoleLib } from './lib/console';
 import { resolveDotsxOsPath } from './lib/constants';
@@ -23,7 +22,7 @@ async function main() {
   const isInitialized = FileLib.isExists(dotsxPath.baseOs);
 
   await ConsoleLib.printSystemInfo();
-  await ConsoleLib.printGitInfo(dotsxPath);
+  await ConsoleLib.printGitInfo();
 
   if (!isInitialized) {
     const action = await select({
@@ -41,7 +40,7 @@ async function main() {
     if (action === 'scratch') {
       await initCommand.execute(dotsxPath);
     } else if (action === 'git') {
-      //   await gitCloneCommand.execute();
+      await gitCloneCommand.execute();
     }
   } else {
     const action = await select({
@@ -65,12 +64,7 @@ async function main() {
     else if (action === 'bin') await binCommand.execute(dotsxPath);
     else if (action === 'pkg') await packageCommand.execute(osInfo.distro || osInfo.family, dotsxPath.packagesManager);
     else if (action === 'git') await gitCommand.execute(dotsxPath);
-    else if (action === 'recover') await recoverCommand.execute(dotsxPath);
   }
 }
 
 main().catch(console.error);
-
-// if (hasBackups) {
-//   options.push({ value: 'recover', label: '🗄️  Recover', hint: 'Restore files from backups' });
-// }

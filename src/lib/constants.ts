@@ -6,15 +6,7 @@ function getDotsxPath(): string {
   return process.env.DOTSX_PATH || path.resolve(process.env.HOME || os.homedir(), '.dotsx');
 }
 
-function getBackupPath(): string {
-  return process.env.BACKUP_METADATA_PATH || path.resolve(process.env.HOME || os.homedir(), '.backup.dotsx');
-}
-
 export const DOTSX_PATH: string = getDotsxPath();
-
-export const BACKUP_PATH: string = getBackupPath();
-export const BACKUP_METADATA_PATH: string = path.resolve(BACKUP_PATH, '.last-backup.json');
-export const BACKUP_LIMIT_PER_FILE: number = 7;
 
 export interface DotsxOsPath {
   baseOs: string;
