@@ -1,148 +1,141 @@
-import { resolve } from 'node:path';
-import { log, multiselect, type Option } from '@clack/prompts';
-import { getDomainByDistro, getDomainByName, getDomainsByType } from '@/domains';
-import { DOTSX, DOTSX_PATH } from '@/lib/constants';
+import path from 'node:path';
+import { groupMultiselect, isCancel, log, outro, spinner } from '@clack/prompts';
+import type { DotsxOsPath } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
-import { DotsxInfoLib, SystemLib } from '@/lib/system';
-import type { Domain, Family, OsInfo } from '@/types';
+import { type FoundPath, SuggestionLib } from '@/lib/suggestion';
+import { SymlinkLib } from '@/lib/symlink';
+import { SystemLib } from '@/lib/system';
+import { getPackageManagerConfig } from '@/packages';
+import { binCommand } from './bin';
 
 export const initCommand = {
-  async execute() {
+  async execute(dotsxPath: DotsxOsPath) {
     try {
       const osInfo = SystemLib.getOsInfo();
 
       log.info(`🖥️  Initializing on a ${osInfo.family} ${osInfo.distro} ${osInfo.release} system...`);
 
-      const availableTerminalDomains = getDomainsByType('terminal');
-      const terminals = await multiselect({
-        message: 'What terminals do you want to initialize?',
+      const availableSuggestions = SuggestionLib.getAvailableSuggestions(osInfo);
+      const existingPaths = SuggestionLib.getExistingSuggestedPaths(availableSuggestions, osInfo);
+
+      const options = SuggestionLib.buildGroupedOptions<FoundPath>(existingPaths, (path) => ({
+        suggestedPath: path.suggestedPath,
+        type: path.type,
+      }));
+
+      // Wait for the terminal to be ready, this is a workaround to avoid the prompt being canceled
+      await new Promise((resolve) => setTimeout(resolve, 1));
+
+      const selectedPaths = await groupMultiselect({
+        message: 'These paths exist on your system, do you want to symlink them with dotsx?',
+        options,
         required: false,
-        options: availableTerminalDomains.map((domain) => ({
-          value: domain.name,
-          label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
-          hint: domain.symlinkPaths?.[osInfo.family]?.join(', '),
-        })) satisfies Option<string>[],
       });
 
-      const availableIdeDomains = getDomainsByType('ide');
-      const ides = await multiselect({
-        message: 'What IDEs do you want to initialize?',
-        required: false,
-        options: availableIdeDomains.map((domain) => ({
-          value: domain.name,
-          label: domain.name.charAt(0).toUpperCase() + domain.name.slice(1),
-          hint: domain.symlinkPaths?.[osInfo.family]?.join(', '),
-        })) satisfies Option<string>[],
-      });
-
-      await this.initOs(osInfo);
-
-      if (Array.isArray(terminals)) {
-        for (const terminalName of terminals) {
-          const domain = getDomainByName(terminalName);
-          if (domain) {
-            await this.initDomainConfig(domain, osInfo.family, DOTSX.TERMINAL.PATH);
-          }
-        }
+      if (isCancel(selectedPaths)) {
+        log.warn('Initialization cancelled');
+        return outro('👋 See you next time!');
       }
 
-      if (Array.isArray(ides)) {
-        for (const ideName of ides) {
-          const domain = getDomainByName(ideName);
-          if (domain) {
-            await this.initDomainConfig(domain, osInfo.family, DOTSX.IDE.PATH);
-          }
-        }
-      }
-
-      await this.initBin();
-      await this.initSymlinks();
-
-      log.success(`🎉 Initialized in: ${DOTSX_PATH}`);
+      await this.handleDotsxDirectoryCreation(dotsxPath);
+      await this.createPackageManagerFiles(dotsxPath);
+      binCommand.writeAliasToRcFile(dotsxPath.binAliases);
+      await this.createSymlinksForSelectedPaths(selectedPaths, dotsxPath);
     } catch (error) {
-      log.error(`Error during initialization: ${String(error)}`);
+      log.error(`Error initializing: ${error}`);
     }
   },
 
-  async initOs(osInfo: OsInfo) {
-    const domain = osInfo.distro ? getDomainByDistro(osInfo.distro) : getDomainByName(osInfo.family);
+  async handleDotsxDirectoryCreation(dotsxPath: DotsxOsPath) {
+    const s = spinner();
+    s.start(`Creating ${dotsxPath.baseOs} directories and files...`);
+    try {
+      FileLib.Directory.create(dotsxPath.baseOs);
+      FileLib.File.create(dotsxPath.config);
+      FileLib.Directory.create(dotsxPath.bin);
+      FileLib.File.create(dotsxPath.binAliases);
+      FileLib.Directory.create(dotsxPath.packagesManager);
+      FileLib.File.create(dotsxPath.packagesManagerConfig);
+      FileLib.Directory.create(dotsxPath.symlinks);
 
-    if (!domain) {
-      log.error(`No OS domain found for ${osInfo.family}`);
+      s.stop(`${dotsxPath.baseOs} directories and files created successfully`);
+    } catch (error) {
+      s.stop(`Error creating ${dotsxPath.baseOs} directories and files: ${error}`);
+      throw error;
+    }
+  },
+
+  async createSymlinksForSelectedPaths(selectedPaths: FoundPath[], dotsxPath: DotsxOsPath) {
+    if (selectedPaths.length === 0) {
+      log.info('No paths selected for symlinking');
       return;
     }
 
-    if (!domain.packageManagers) {
-      log.error(`No package managers defined for ${domain.name}`);
-      return;
-    }
+    const s = spinner();
+    s.start('Creating symlinks...');
 
-    log.info(`📦 Configuring ${domain.name} package management...`);
-    const created: string[] = [];
+    let successCount = 0;
+    for (const path of selectedPaths) {
+      const systemPath = FileLib.expand(path.suggestedPath);
+      const dotsxSymlinkPath = FileLib.toDotsxPath(systemPath, dotsxPath.symlinks);
 
-    const osDirPath = resolve(DOTSX.OS.PATH, domain.name);
-    FileLib.createDirectory(osDirPath);
-
-    for (const config of Object.values(domain.packageManagers)) {
-      const { configPath, defaultContent } = config;
-
-      if (!FileLib.isPathExists(configPath)) {
-        FileLib.createFile(configPath, defaultContent);
-        created.push(FileLib.getDisplayPath(configPath));
-      } else {
-        log.warn(`Already exists: ${FileLib.getDisplayPath(configPath)}`);
+      try {
+        SymlinkLib.safeSymlink(dotsxPath, systemPath, dotsxSymlinkPath);
+        s.message(`✓ ${path.suggestedPath}`);
+        successCount++;
+      } catch (error) {
+        log.error(`Failed to symlink ${path.suggestedPath}: ${error}`);
       }
     }
 
-    created.length > 0 && log.success(`Created:\n${created.join('\n')}`);
+    s.stop(`Created ${successCount}/${selectedPaths.length} symlink(s)`);
   },
 
-  async initDomainConfig(domain: Domain, currentOs: Family, basePath: string) {
-    if (!domain.symlinkPaths?.[currentOs]) {
-      log.error(`No symlink paths for ${domain.name} on ${currentOs}`);
+  async createPackageManagerFiles(dotsxPath: DotsxOsPath) {
+    const osInfo = SystemLib.getOsInfo();
+    const packageManagers = getPackageManagerConfig(osInfo.distro || osInfo.family);
+
+    if (packageManagers.length === 0) {
+      log.warn('No package managers configured for this OS');
       return;
     }
 
-    log.info(`📁 Initializing ${domain.name} configurations...`);
+    const s = spinner();
+    s.start('Creating package manager files...');
 
-    const imported: { systemPath: string; dotsxPath: string }[] = [];
-    const notFound: string[] = [];
+    // Create package manager metadata JSON
+    const packageMetadata: Record<string, string[]> = {};
 
-    for (const symlinkPath of domain.symlinkPaths[currentOs]) {
-      const systemPath = FileLib.expandPath(symlinkPath);
-      const dotsxPath = DotsxInfoLib.getDotsxPath(domain, symlinkPath, basePath);
+    for (const pm of packageManagers) {
+      const filePath = path.resolve(dotsxPath.packagesManager, pm.fileList);
 
-      if (FileLib.isPathExists(systemPath)) {
-        FileLib.safeSymlink(systemPath, dotsxPath);
-        imported.push({ systemPath: FileLib.getDisplayPath(systemPath), dotsxPath: FileLib.getDisplayPath(dotsxPath) });
-      } else {
-        notFound.push(FileLib.getDisplayPath(systemPath));
-      }
+      // Create .txt file with helpful header comment
+      const header = [
+        `# ${pm.name} Package List`,
+        `#`,
+        `# How to use:`,
+        `# - Write one package name per line`,
+        `# - Lines starting with # are ignored (comments)`,
+        `# - Example:`,
+        `#   git`,
+        `#   curl`,
+        `#   # tmux  <- This line is commented, package ignored`,
+        `#`,
+        `# Commands:`,
+        `# - Install: ${pm.install.replace('%s', '<package>')}`,
+        `# - Remove:  ${pm.remove.replace('%s', '<package>')}`,
+        `# - Status:  ${pm.status.replace('%s', '<package>')}`,
+        `#`,
+        '',
+      ].join('\n');
+
+      FileLib.File.create(filePath, header);
+      packageMetadata[pm.name] = [];
+      s.message(`✓ ${pm.fileList}`);
     }
 
-    imported.length > 0 &&
-      log.success(
-        `Synced:\n${imported.map(({ systemPath, dotsxPath }) => `${systemPath} <-> ${dotsxPath}`).join('\n')}`,
-      );
-    notFound.length > 0 && log.warning(`Ignored because not found:\n${notFound.join('\n')}`);
-  },
+    FileLib.File.write(dotsxPath.packagesManagerConfig, JSON.stringify(packageManagers, null, 2));
 
-  async initBin() {
-    if (!FileLib.isDirectory(DOTSX.BIN.PATH)) {
-      FileLib.createDirectory(DOTSX.BIN.PATH);
-      FileLib.createFile(DOTSX.BIN.ALIAS);
-      log.success(`Bin directory created: ${DOTSX.BIN.PATH}`);
-    } else {
-      log.success(`Bin directory already exists: ${DOTSX.BIN.PATH}`);
-    }
-  },
-
-  async initSymlinks() {
-    if (!FileLib.isDirectory(DOTSX.SYMLINKS)) {
-      FileLib.createDirectory(DOTSX.SYMLINKS);
-      log.success(`Symlinks directory created: ${DOTSX.SYMLINKS}`);
-    } else {
-      log.success(`Symlinks directory already exists: ${DOTSX.SYMLINKS}`);
-    }
+    s.stop(`Created ${packageManagers.length} package manager file(s)`);
   },
 };

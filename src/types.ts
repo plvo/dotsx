@@ -1,42 +1,37 @@
-export type Family = 'linux' | 'windows' | 'macos' | 'bsd' | 'unix' | 'unknown';
+export type KnownLinuxDistro =
+  | 'debian'
+  | 'ubuntu'
+  | 'arch'
+  | 'manjaro'
+  | 'fedora'
+  | 'rhel'
+  | 'centos'
+  | 'rocky'
+  | 'almalinux'
+  | 'opensuse'
+  | 'opensuse-leap'
+  | 'opensuse-tumbleweed'
+  | 'sles'
+  | 'gentoo'
+  | 'void'
+  | 'nixos'
+  | 'slackware'
+  | 'kali'
+  | 'raspbian'
+  | 'pop'
+  | 'elementary'
+  | 'linuxmint'
+  | 'zorin'
+  | 'endless'
+  | 'clear-linux-os'
+  | 'alpine'
+  | 'amazon'
+  | 'oracle'
+  | 'mageia'
+  | 'parrot'
+  | 'deepin';
 
-export interface OsInfo {
-  platform: NodeJS.Platform;
-  family: Family;
-  distro?: string | null;
-  release?: string | null;
-}
-
-export interface SystemInfo extends OsInfo {
-  arch: string;
-  hostname: string;
-  shell: string;
-  rcFile: string;
-}
-
-export type DomainType = 'ide' | 'os' | 'terminal';
-
-export interface Domain {
-  name: string;
-  type: DomainType;
-  distro: string[] | null;
-  packageManagers?: Record<string, PackageManagerConfig>;
-  symlinkPaths?: Partial<Record<Family, string[]>>;
-  defaultContent?: string;
-}
-
-export interface PackageManagerConfig {
-  configPath: string;
-  install: string;
-  remove: string;
-  status: string;
-  defaultContent: string;
-}
-
-export type CliCommand = {
-  execute: () => Promise<void>;
-  [key: string]: () => unknown;
-};
+export type OsFamily = 'linux' | 'windows' | 'macos' | 'bsd' | 'unix' | 'unknown';
 
 export type Link = {
   systemPath: string;
