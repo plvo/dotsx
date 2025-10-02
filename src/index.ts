@@ -1,5 +1,3 @@
-// #!/usr/bin/env bun
-
 import path from 'node:path';
 import { intro, isCancel, outro, select } from '@clack/prompts';
 import { binCommand } from './commands/bin';
@@ -49,7 +47,6 @@ async function main() {
         { value: 'symlink', label: '📋 Symlinks', hint: 'Create symlinks for files and directories' },
         { value: 'git', label: '🔧 Git', hint: 'Manage Git repository and synchronization' },
         { value: 'doctor', label: '🩺 Doctor', hint: 'Run full diagnostics and show all configurations' },
-        { value: 'recover', label: '🗄️ Recover', hint: 'Restore files from backups' },
         { value: 'bin', label: "🚀 Bin's scripts", hint: 'Manage bin scripts and aliases' },
         { value: 'pkg', label: `📦 ${path.basename(dotsxPath.baseOs)} packages`, hint: 'Install, remove packages' },
       ],
