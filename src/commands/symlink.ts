@@ -37,7 +37,7 @@ export const symlinkCommand = {
     const systemPath = FileLib.expand(String(pathInput));
     const dotsxPath = FileLib.toDotsxPath(systemPath, dotsxOsPath.symlinks);
 
-    SymlinkLib.safeSymlink(dotsxOsPath, systemPath, dotsxPath);
+    SymlinkLib.safeSymlink(systemPath, dotsxPath);
   },
 
   async manageSuggestions(dotsxOsPath: DotsxOsPath) {
@@ -83,7 +83,7 @@ export const symlinkCommand = {
       const dotsxPath = FileLib.toDotsxPath(systemPath, dotsxOsPath.symlinks);
 
       try {
-        SymlinkLib.safeSymlink(dotsxOsPath, systemPath, dotsxPath);
+        SymlinkLib.safeSymlink(systemPath, dotsxPath);
         log.success(FileLib.display(dotsxPath));
       } catch (err) {
         log.error(`${FileLib.display(dotsxPath)}: ${err}`);
@@ -105,7 +105,7 @@ export const symlinkCommand = {
     let fixed = 0;
     for (const { systemPath, dotsxPath } of links.incorrectSymlinks) {
       try {
-        SymlinkLib.safeSymlink(dotsxOsPath, systemPath, dotsxPath);
+        SymlinkLib.safeSymlink(systemPath, dotsxPath);
         log.success(FileLib.display(dotsxPath));
         fixed++;
       } catch (err) {

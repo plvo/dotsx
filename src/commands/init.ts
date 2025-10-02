@@ -90,7 +90,7 @@ export const initCommand = {
       const dotsxSymlinkPath = FileLib.toDotsxPath(systemPath, dotsxPath.symlinks);
 
       try {
-        SymlinkLib.safeSymlink(dotsxPath, systemPath, dotsxSymlinkPath);
+        SymlinkLib.safeSymlink(systemPath, dotsxSymlinkPath);
         s.message(`✓ ${path.suggestedPath}`);
         successCount++;
       } catch (error) {

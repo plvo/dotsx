@@ -8,10 +8,9 @@ import { gitCommand } from './commands/git';
 import { gitCloneCommand } from './commands/git-clone';
 import { initCommand } from './commands/init';
 import { packageCommand } from './commands/packages';
-import { recoverCommand } from './commands/recover';
 import { symlinkCommand } from './commands/symlink';
 import { ConsoleLib } from './lib/console';
-import { BACKUP_PATH, resolveDotsxOsPath } from './lib/constants';
+import { resolveDotsxOsPath } from './lib/constants';
 import { FileLib } from './lib/file';
 import { SystemLib } from './lib/system';
 
@@ -31,9 +30,6 @@ async function main() {
       options: [
         { value: 'scratch', label: '🌱 From scratch', hint: 'Create a new ~/.dotsx directory' },
         { value: 'git', label: '🔧 From Git', hint: 'Clone a git repository into ~/.dotsx, `git` must be configured' },
-        ...(FileLib.isExists(BACKUP_PATH)
-          ? [{ value: 'recover', label: '🗄️  Recover', hint: 'Restore files from backups' }]
-          : []),
       ],
     });
 
@@ -45,8 +41,6 @@ async function main() {
       await initCommand.execute(dotsxPath);
     } else if (action === 'git') {
       await gitCloneCommand.execute();
-    } else if (action === 'recover') {
-      await recoverCommand.execute(dotsxPath);
     }
   } else {
     const action = await select({
@@ -70,7 +64,6 @@ async function main() {
     else if (action === 'bin') await binCommand.execute(dotsxPath);
     else if (action === 'pkg') await packageCommand.execute(osInfo.distro || osInfo.family, dotsxPath.packagesManager);
     else if (action === 'git') await gitCommand.execute(dotsxPath);
-    else if (action === 'recover') await recoverCommand.execute(dotsxPath);
   }
 }
 

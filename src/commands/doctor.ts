@@ -273,7 +273,7 @@ export const doctorCommand = {
           message: `Broken symlink: ${displayPath}`,
           fixable: true,
           fix: async () => {
-            SymlinkLib.safeSymlink(dotsxOsPath, systemPath, dotsxPath);
+            SymlinkLib.safeSymlink(systemPath, dotsxPath);
           },
         });
       }
