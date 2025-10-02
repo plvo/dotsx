@@ -166,7 +166,7 @@ export const doctorCommand = {
       gitStatus += '\n  💡 Run: dotsx git → Manage remote';
     }
 
-    log.step(gitStatus);
+    log.message(gitStatus);
   },
 
   async checkBin(issues: DoctorIssue[], dotsxPath: DotsxOsPath) {

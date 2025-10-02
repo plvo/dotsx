@@ -9,7 +9,6 @@ import type { KnownLinuxDistro, OsFamily } from '@/types';
 export const packageCommand = {
   async execute(os: KnownLinuxDistro | OsFamily, packagesManagerPath: string) {
     const packageManagerConfig = getPackageManagerConfig(os);
-    console.log(packageManagerConfig);
 
     const selectedManager = await select({
       message: 'Which package manager do you want to use?',

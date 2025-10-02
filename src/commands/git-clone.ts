@@ -1,10 +1,9 @@
 import { log, spinner, text } from '@clack/prompts';
+import { DOTSX_PATH } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { GitLib } from '@/lib/git';
-import { DOTSX_PATH } from '@/lib/constants';
-import type { CliCommand } from '@/types';
 
-export const gitCloneCommand: CliCommand = {
+export const gitCloneCommand = {
   async execute() {
     log.step('🔗 Clone DotsX from Existing Repository');
 
@@ -57,18 +56,6 @@ export const gitCloneCommand: CliCommand = {
     try {
       await GitLib.cloneRepository(repoUrl, DOTSX_PATH);
       s.stop('Repository cloned successfully');
-
-      // Validate structure
-      const validation = GitLib.validateDotsxStructure(DOTSX_PATH);
-
-      if (validation.isValid) {
-        log.success('🎉 DotsX initialized successfully from Git repository!');
-        log.info('All required directories are present.');
-      } else {
-        log.warn('⚠️  Repository structure is incomplete');
-        log.info(validation.message);
-        log.info('💡 Run: dotsx repair');
-      }
 
       const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
       if (gitInfo.repoName) {

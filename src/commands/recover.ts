@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { log, multiselect, select } from '@clack/prompts';
 import { ConsoleLib } from '@/lib/console';
-import { FileLib } from '@/lib/file';
 import { BACKUP_PATH, type DotsxOsPath } from '@/lib/constants';
+import { FileLib } from '@/lib/file';
 
 interface BackupFile {
   dotsxRelativePath: string;
@@ -24,7 +24,6 @@ export const recoverCommand = {
       return;
     }
 
-    // Group backups by original path
     const grouped = this.groupBackupsByPath(backups);
     const filePaths = Object.keys(grouped);
 
@@ -45,7 +44,6 @@ export const recoverCommand = {
       return;
     }
 
-    // Ask for recovery strategy
     const strategy = await select({
       message: 'How would you like to recover these files?',
       options: [
@@ -125,7 +123,6 @@ export const recoverCommand = {
       grouped[backup.dotsxRelativePath]?.push(backup);
     }
 
-    // Sort backups by timestamp (newest first)
     for (const filePath in grouped) {
       grouped[filePath]?.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
     }
@@ -135,13 +132,10 @@ export const recoverCommand = {
 
   async restoreBackup(dotsxOsPath: DotsxOsPath, dotsxRelativePath: string, backup: BackupFile) {
     try {
-      // Restore to dotsx structure
       const dotsxFilePath = path.join(dotsxOsPath.baseOs, dotsxRelativePath);
 
-      // Create parent directory
       FileLib.Directory.create(path.dirname(dotsxFilePath));
 
-      // Copy backup to dotsx
       if (FileLib.isFile(backup.backupPath)) {
         FileLib.File.copy(backup.backupPath, dotsxFilePath);
       } else if (FileLib.isDirectory(backup.backupPath)) {

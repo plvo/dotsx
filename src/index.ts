@@ -5,13 +5,13 @@ import { intro, isCancel, outro, select } from '@clack/prompts';
 import { binCommand } from './commands/bin';
 import { doctorCommand } from './commands/doctor';
 import { gitCommand } from './commands/git';
-// import { gitCloneCommand } from './commands/git-clone';
+import { gitCloneCommand } from './commands/git-clone';
 import { initCommand } from './commands/init';
 import { packageCommand } from './commands/packages';
 import { recoverCommand } from './commands/recover';
 import { symlinkCommand } from './commands/symlink';
 import { ConsoleLib } from './lib/console';
-import { resolveDotsxOsPath } from './lib/constants';
+import { BACKUP_PATH, resolveDotsxOsPath } from './lib/constants';
 import { FileLib } from './lib/file';
 import { SystemLib } from './lib/system';
 
@@ -23,7 +23,7 @@ async function main() {
   const isInitialized = FileLib.isExists(dotsxPath.baseOs);
 
   await ConsoleLib.printSystemInfo();
-  await ConsoleLib.printGitInfo(dotsxPath);
+  await ConsoleLib.printGitInfo();
 
   if (!isInitialized) {
     const action = await select({
@@ -31,6 +31,9 @@ async function main() {
       options: [
         { value: 'scratch', label: '🌱 From scratch', hint: 'Create a new ~/.dotsx directory' },
         { value: 'git', label: '🔧 From Git', hint: 'Clone a git repository into ~/.dotsx, `git` must be configured' },
+        ...(FileLib.isExists(BACKUP_PATH)
+          ? [{ value: 'recover', label: '🗄️  Recover', hint: 'Restore files from backups' }]
+          : []),
       ],
     });
 
@@ -41,7 +44,9 @@ async function main() {
     if (action === 'scratch') {
       await initCommand.execute(dotsxPath);
     } else if (action === 'git') {
-      //   await gitCloneCommand.execute();
+      await gitCloneCommand.execute();
+    } else if (action === 'recover') {
+      await recoverCommand.execute(dotsxPath);
     }
   } else {
     const action = await select({
@@ -70,7 +75,3 @@ async function main() {
 }
 
 main().catch(console.error);
-
-// if (hasBackups) {
-//   options.push({ value: 'recover', label: '🗄️  Recover', hint: 'Restore files from backups' });
-// }

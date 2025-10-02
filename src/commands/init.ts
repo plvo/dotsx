@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { groupMultiselect, isCancel, log, outro, spinner } from '@clack/prompts';
+import { confirm, groupMultiselect, isCancel, log, outro, spinner } from '@clack/prompts';
 import type { DotsxOsPath } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { type FoundPath, SuggestionLib } from '@/lib/suggestion';
@@ -7,6 +7,7 @@ import { SymlinkLib } from '@/lib/symlink';
 import { SystemLib } from '@/lib/system';
 import { getPackageManagerConfig } from '@/packages';
 import { binCommand } from './bin';
+import { gitCommand } from './git';
 
 export const initCommand = {
   async execute(dotsxPath: DotsxOsPath) {
@@ -32,7 +33,12 @@ export const initCommand = {
         required: false,
       });
 
-      if (isCancel(selectedPaths)) {
+      const confirmGit = await confirm({
+        message: 'Would you like to initialize a Git repository? It is highly recommended to save your configuration.',
+        initialValue: true,
+      });
+
+      if (isCancel(selectedPaths) || isCancel(confirmGit)) {
         log.warn('Initialization cancelled');
         return outro('👋 See you next time!');
       }
@@ -41,6 +47,10 @@ export const initCommand = {
       await this.createPackageManagerFiles(dotsxPath);
       binCommand.writeAliasToRcFile(dotsxPath.binAliases);
       await this.createSymlinksForSelectedPaths(selectedPaths, dotsxPath);
+
+      if (confirmGit) {
+        await gitCommand.execute(dotsxPath);
+      }
     } catch (error) {
       log.error(`Error initializing: ${error}`);
     }
