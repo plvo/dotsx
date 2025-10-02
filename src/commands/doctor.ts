@@ -1,56 +1,42 @@
-import { confirm, log, outro } from '@clack/prompts';
-import { ConsoleLib } from '@/lib/console';
+import { confirm, isCancel, log, outro } from '@clack/prompts';
+import type { DotsxOsPath } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { GitLib } from '@/lib/git';
+import { SymlinkLib } from '@/lib/symlink';
 import { SystemLib } from '@/lib/system';
-import { allDomains, getDomainByDistro, getDomainByName } from '@/old';
-import { DOTSX, DOTSX_PATH } from '@/old/constants';
-import type { Domain } from '@/types';
 import { symlinkCommand } from './symlink';
 
 interface DoctorIssue {
   type: 'error' | 'warning' | 'info';
-  category: 'structure' | 'git' | 'symlinks' | 'domains';
+  category: 'structure' | 'git' | 'symlinks' | 'bin';
   message: string;
   fixable: boolean;
   fix?: () => Promise<void>;
 }
 
 export const doctorCommand = {
-  async execute() {
+  async execute(dotsxPath: DotsxOsPath) {
     const issues: DoctorIssue[] = [];
 
-    // 2. Check DotsX structure
-    await this.checkStructure(issues);
-
-    // 3. Check Git
-    await this.checkGit(issues);
-
-    // 4. Check domains
-    await this.checkDomains(issues);
-
-    // 5. Check symlinks
-    await this.checkSymlinks(issues);
-
-    // 6. Summary
+    await this.checkStructure(issues, dotsxPath);
+    await this.checkGit(issues, dotsxPath);
+    await this.checkBin(issues, dotsxPath);
+    await this.checkSymlinks(issues, dotsxPath);
     await this.showSummary(issues);
 
-    // 7. Propose fixes
     if (issues.some((i) => i.fixable)) {
       await this.proposeFixes(issues);
     }
   },
 
-  async checkStructure(issues: DoctorIssue[]) {
+  async checkStructure(issues: DoctorIssue[], dotsxPath: DotsxOsPath) {
     log.info('📁 Directory Structure');
 
     const requiredDirs = [
-      { path: DOTSX_PATH, name: '~/.dotsx' },
-      { path: DOTSX.BIN.PATH, name: 'bin/' },
-      { path: DOTSX.IDE.PATH, name: 'ide/' },
-      { path: DOTSX.OS.PATH, name: 'os/' },
-      { path: DOTSX.TERMINAL.PATH, name: 'terminal/' },
-      { path: DOTSX.SYMLINKS, name: 'symlinks/' },
+      { path: dotsxPath.baseOs, name: '~/.dotsx' },
+      { path: dotsxPath.bin, name: 'bin/' },
+      { path: dotsxPath.packagesManager, name: 'packages/' },
+      { path: dotsxPath.symlinks, name: 'symlinks/' },
     ];
 
     const existsPaths = [];
@@ -68,18 +54,17 @@ export const doctorCommand = {
           message: `Missing directory: ${dir.name}`,
           fixable: true,
           fix: async () => {
-            FileLib.createDirectory(dir.path);
+            FileLib.Directory.create(dir.path);
             log.success(`Created ${dir.name}`);
           },
         });
       }
     }
 
-    ConsoleLib.logListWithTitle('Directories present', existsPaths);
-    ConsoleLib.logListWithTitle('Directories missing', missingPaths);
+    log.message(`  ✅ ${existsPaths.length}/${requiredDirs.length} directories present`);
   },
 
-  async checkGit(issues: DoctorIssue[]) {
+  async checkGit(issues: DoctorIssue[], dotsxPath: DotsxOsPath) {
     log.info('🔧 Git Repository');
     const isGitInstalled = await GitLib.isGitInstalled();
     if (!isGitInstalled) {
@@ -93,7 +78,7 @@ export const doctorCommand = {
       return;
     }
 
-    const isRepo = await GitLib.isGitRepository(DOTSX_PATH);
+    const isRepo = await GitLib.isGitRepository(dotsxPath.baseOs);
     if (!isRepo) {
       log.message('  ⚠️ Not a Git repository');
       issues.push({
@@ -108,7 +93,7 @@ export const doctorCommand = {
 
     let gitStatus = 'Git repository initialized';
 
-    const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
+    const gitInfo = await GitLib.getRepositoryInfo(dotsxPath.baseOs);
 
     if (gitInfo.remoteUrl) {
       gitStatus += `\n  ✅ Remote: ${gitInfo.remoteUrl}`;
@@ -158,9 +143,9 @@ export const doctorCommand = {
       }
 
       // Check for conflicts
-      const hasConflicts = await GitLib.hasConflicts(DOTSX_PATH);
+      const hasConflicts = await GitLib.hasConflicts(dotsxPath.baseOs);
       if (hasConflicts) {
-        const conflictedFiles = await GitLib.getConflictedFiles(DOTSX_PATH);
+        const conflictedFiles = await GitLib.getConflictedFiles(dotsxPath.baseOs);
         gitStatus += `\n  🚨 ${conflictedFiles.length} conflicted file(s)`;
         issues.push({
           type: 'error',
@@ -184,136 +169,20 @@ export const doctorCommand = {
     log.step(gitStatus);
   },
 
-  async checkDomains(issues: DoctorIssue[]) {
-    log.info('🔍 Domain Configurations');
-
-    const osInfo = SystemLib.getOsInfo();
-    const currentOs = osInfo.family;
-
-    // Check OS domain
-    const osDomain = osInfo.distro ? getDomainByDistro(osInfo.distro) : getDomainByName(currentOs);
-    if (osDomain) {
-      await this.checkOsDomain(osDomain, issues);
-    }
-
-    // Check IDE domains
-    const ideDomains = allDomains.filter((d) => d.type === 'ide');
-    for (const domain of ideDomains) {
-      await this.checkIdeDomain(domain, currentOs, issues);
-    }
-
-    // Check Terminal domains
-    const terminalDomains = allDomains.filter((d) => d.type === 'terminal');
-    for (const domain of terminalDomains) {
-      await this.checkTerminalDomain(domain, currentOs, issues);
-    }
-
-    // Check Bin
-    await this.checkBin(issues);
-  },
-
-  async checkOsDomain(domain: Domain, issues: DoctorIssue[]) {
-    const domainPath = `${DOTSX.OS.PATH}/${domain.name}`;
-    const exists = FileLib.isDirectory(domainPath);
-
-    log.step(`📦 ${domain.name.toUpperCase()} (OS)`);
-
-    if (!exists) {
-      log.message(`  ⚠️ Not initialized`);
-      return;
-    }
-
-    if (domain.packageManagers) {
-      for (const [pmName, pmConfig] of Object.entries(domain.packageManagers)) {
-        const configExists = FileLib.isFile(pmConfig.configPath);
-        if (configExists) {
-          const packages = FileLib.readFileAsArray(pmConfig.configPath);
-          log.message(`  ✅ ${pmName}: ${packages.length} package(s)`);
-        } else {
-          log.message(`  ❌ ${pmName}: config missing`);
-          issues.push({
-            type: 'error',
-            category: 'domains',
-            message: `${domain.name}/${pmName} config missing`,
-            fixable: true,
-            fix: async () => {
-              FileLib.createFile(pmConfig.configPath, pmConfig.defaultContent);
-              log.message(`  ✅ Created ${pmName} config`);
-            },
-          });
-        }
-      }
-    }
-  },
-
-  async checkIdeDomain(domain: Domain, currentOs: string, issues: DoctorIssue[]) {
-    const domainPath = `${DOTSX.IDE.PATH}/${domain.name}`;
-    const exists = FileLib.isDirectory(domainPath);
-
-    log.step(`💻 ${domain.name.toUpperCase()} (IDE)`);
-
-    if (!exists) {
-      log.message(`  ⚠️  Not initialized`);
-      return;
-    }
-
-    const status = ConsoleLib.getConfigStatus(domain, currentOs as any, DOTSX.IDE.PATH);
-
-    if (status.status === 'incompatible') {
-      log.message(`  ⚠️ Not compatible with ${currentOs}`);
-    } else if (status.status === 'fully_imported') {
-      log.message(`  ✅ ${status.importedFiles}/${status.totalFiles} config(s) imported`);
-    } else if (status.status === 'partially_imported') {
-      log.message(`  ⚠️ ${status.importedFiles}/${status.totalFiles} config(s) imported`);
-      for (const missing of status.missingPaths) {
-        log.message(`  ❌ ${missing}`);
-      }
-    } else {
-      log.message(`  ❌ Not imported (0/${status.totalFiles})`);
-    }
-  },
-
-  async checkTerminalDomain(domain: Domain, currentOs: string, issues: DoctorIssue[]) {
-    const domainPath = `${DOTSX.TERMINAL.PATH}/${domain.name}`;
-    const exists = FileLib.isDirectory(domainPath);
-
-    log.step(`🖥️  ${domain.name.toUpperCase()} (Terminal)`);
-
-    if (!exists) {
-      log.message(`  ⚠️ Not initialized`);
-      return;
-    }
-
-    const status = ConsoleLib.getConfigStatus(domain, currentOs as any, DOTSX.TERMINAL.PATH);
-
-    if (status.status === 'incompatible') {
-      log.message(`  ⚠️ Not compatible with ${currentOs}`);
-    } else if (status.status === 'fully_imported') {
-      log.message(`  ✅ ${status.importedFiles}/${status.totalFiles} config(s) imported`);
-    } else if (status.status === 'partially_imported') {
-      log.message(`  ⚠️ ${status.importedFiles}/${status.totalFiles} config(s) imported`);
-      for (const missing of status.missingPaths) {
-        log.message(`  ❌ ${missing}`);
-      }
-    } else {
-      log.message(`  ❌ Not imported (0/${status.totalFiles})`);
-    }
-  },
-
-  async checkBin(issues: DoctorIssue[]) {
+  async checkBin(issues: DoctorIssue[], dotsxPath: DotsxOsPath) {
     log.step('🚀 BIN Scripts');
 
-    const binExists = FileLib.isDirectory(DOTSX.BIN.PATH);
+    const binExists = FileLib.isDirectory(dotsxPath.bin);
     if (!binExists) {
       log.message('  ⚠️ Not initialized');
       issues.push({
         type: 'warning',
-        category: 'domains',
+        category: 'bin',
         message: 'Bin directory not initialized',
         fixable: true,
         fix: async () => {
-          FileLib.createDirectory(DOTSX.BIN.PATH);
-          FileLib.createFile(DOTSX.BIN.ALIAS);
+          FileLib.Directory.create(dotsxPath.bin);
+          FileLib.File.create(dotsxPath.binAliases);
           log.message('  ✅ Created bin directory and alias file');
         },
       });
@@ -321,16 +190,16 @@ export const doctorCommand = {
       return;
     }
 
-    const aliasExists = FileLib.isFile(DOTSX.BIN.ALIAS);
+    const aliasExists = FileLib.isFile(dotsxPath.binAliases);
     if (!aliasExists) {
       log.message('  ❌ Alias file missing');
       issues.push({
         type: 'error',
-        category: 'domains',
+        category: 'bin',
         message: 'Bin alias file missing',
         fixable: true,
         fix: async () => {
-          FileLib.createFile(DOTSX.BIN.ALIAS);
+          FileLib.File.create(dotsxPath.binAliases);
           log.message('  ✅ Created alias file');
         },
       });
@@ -338,20 +207,51 @@ export const doctorCommand = {
       log.message('  ✅ Alias file exists');
     }
 
-    const scripts = FileLib.readDirectory(DOTSX.BIN.PATH).filter(
-      (f) => !f.startsWith('_') && FileLib.isFile(`${DOTSX.BIN.PATH}/${f}`),
+    const rcFilePath = SystemLib.getRcFilePath();
+    if (!rcFilePath) {
+      log.message('  ❌ RC file not found');
+      issues.push({
+        type: 'error',
+        category: 'bin',
+        message: 'RC file not found',
+        fixable: false,
+      });
+      return;
+    } else {
+      log.message('  ✅ RC file found');
+    }
+
+    const isSourceWritten = FileLib.File.read(rcFilePath).includes(dotsxPath.binAliases);
+    if (!isSourceWritten) {
+      log.message('  ❌ Source not written');
+      issues.push({
+        type: 'error',
+        category: 'bin',
+        message: 'Source not written',
+        fixable: true,
+        fix: async () => {
+          FileLib.File.writeAppend(rcFilePath, `source ${dotsxPath.binAliases}`);
+          log.message('  ✅ Source written');
+        },
+      });
+    } else {
+      log.message('  ✅ Source written');
+    }
+
+    const scripts = FileLib.Directory.read(dotsxPath.bin).filter(
+      (f) => f !== dotsxPath.binAliases && FileLib.isFile(`${dotsxPath.bin}/${f}`),
     );
 
     log.message(`  ✅ ${scripts.length} script(s) found`);
   },
 
-  async checkSymlinks(issues: DoctorIssue[]) {
+  async checkSymlinks(issues: DoctorIssue[], dotsxOsPath: DotsxOsPath) {
     log.info('🔗 Symlinks Status');
 
-    const links = symlinkCommand.getSymlinks();
+    const links = symlinkCommand.getSymlinks(dotsxOsPath);
 
     if (links.length === 0) {
-      log.message('  ⚠️ No symlinks configured');
+      log.message('  ⚠️  No symlinks configured');
       return;
     }
 
@@ -359,8 +259,8 @@ export const doctorCommand = {
     let incorrect = 0;
 
     for (const { systemPath, dotsxPath } of links) {
-      const displayPath = FileLib.getDisplayPath(dotsxPath);
-      const isCorrect = FileLib.isSymLinkContentCorrect(dotsxPath, systemPath);
+      const displayPath = FileLib.display(dotsxPath);
+      const isCorrect = SymlinkLib.isSymLinkContentCorrect(dotsxPath, systemPath);
 
       if (isCorrect) {
         correct++;
@@ -373,7 +273,7 @@ export const doctorCommand = {
           message: `Broken symlink: ${displayPath}`,
           fixable: true,
           fix: async () => {
-            FileLib.safeSymlink(systemPath, dotsxPath);
+            SymlinkLib.safeSymlink(dotsxOsPath, systemPath, dotsxPath);
           },
         });
       }
@@ -382,8 +282,7 @@ export const doctorCommand = {
     if (incorrect === 0) {
       log.message(`  ✅ All ${correct} symlink(s) are correct`);
     } else {
-      log.message(`  ⚠️ ${correct}/${links.length} symlink(s) correct`);
-      log.message(`  ❌ ${incorrect} broken symlink(s)`);
+      log.message(`  ⚠️  ${correct}/${links.length} symlink(s) correct`);
     }
   },
 
@@ -392,29 +291,24 @@ export const doctorCommand = {
 
     const errors = issues.filter((i) => i.type === 'error');
     const warnings = issues.filter((i) => i.type === 'warning');
-    const fixable = issues.filter((i) => i.fixable);
 
     if (issues.length === 0) {
-      log.message('🎉 Everything looks great! No issues found.');
+      log.success('🎉 Everything looks great! No issues found.');
       return;
     }
 
     if (errors.length > 0) {
-      log.message(`${errors.length} error(s) found:`);
+      log.error(`${errors.length} error(s) found:`);
       for (const error of errors) {
-        log.message(`  ❌ ${error.message}`);
+        log.message(`  ${error.message}`);
       }
     }
 
     if (warnings.length > 0) {
-      log.message(`⚠️  ${warnings.length} warning(s) found:`);
+      log.warn(`${warnings.length} warning(s) found:`);
       for (const warning of warnings) {
-        log.message(`  ⚠️ ${warning.message}`);
+        log.message(`  ${warning.message}`);
       }
-    }
-
-    if (fixable.length > 0) {
-      log.message(`💡 ${fixable.length} issue(s) can be fixed automatically`);
     }
   },
 
@@ -428,7 +322,7 @@ export const doctorCommand = {
       initialValue: true,
     });
 
-    if (!shouldFix) {
+    if (isCancel(shouldFix)) {
       outro('Skipped automatic fixes');
       return;
     }

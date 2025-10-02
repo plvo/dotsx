@@ -3,7 +3,7 @@
 import path from 'node:path';
 import { intro, isCancel, outro, select } from '@clack/prompts';
 import { binCommand } from './commands/bin';
-// import { doctorCommand } from './commands/doctor';
+import { doctorCommand } from './commands/doctor';
 // import { gitCommand } from './commands/git';
 // import { gitCloneCommand } from './commands/git-clone';
 import { initCommand } from './commands/init';
@@ -60,10 +60,10 @@ async function main() {
       return outro('👋 See you next time!');
     }
 
-    // if (action === 'doctor') await doctorCommand.execute();
-    if (action === 'pkg') await packageCommand.execute(osInfo.distro || osInfo.family, dotsxPath.packagesManager);
+    if (action === 'doctor') await doctorCommand.execute(dotsxPath);
     else if (action === 'symlink') await symlinkCommand.execute(dotsxPath);
     else if (action === 'bin') await binCommand.execute(dotsxPath);
+    else if (action === 'pkg') await packageCommand.execute(osInfo.distro || osInfo.family, dotsxPath.packagesManager);
     // else if (action === 'recover') await recoverCommand.execute();
     // else if (action === 'git') await gitCommand.execute();
   }

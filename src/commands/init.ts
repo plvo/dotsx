@@ -1,8 +1,11 @@
+import path from 'node:path';
 import { groupMultiselect, isCancel, log, outro, spinner } from '@clack/prompts';
 import type { DotsxOsPath } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { type FoundPath, SuggestionLib } from '@/lib/suggestion';
+import { SymlinkLib } from '@/lib/symlink';
 import { SystemLib } from '@/lib/system';
+import { getPackageManagerConfig } from '@/packages';
 import { binCommand } from './bin';
 
 export const initCommand = {
@@ -24,7 +27,7 @@ export const initCommand = {
       await new Promise((resolve) => setTimeout(resolve, 1));
 
       const selectedPaths = await groupMultiselect({
-        message: 'Which configuration files do you want to manage with dotsx?',
+        message: 'These paths exist on your system, do you want to symlink them with dotsx?',
         options,
         required: false,
       });
@@ -35,8 +38,9 @@ export const initCommand = {
       }
 
       await this.handleDotsxDirectoryCreation(dotsxPath);
+      await this.createPackageManagerFiles(dotsxPath);
       binCommand.writeAliasToRcFile(dotsxPath.binAliases);
-      await this.createSelectedPaths(selectedPaths);
+      await this.createSymlinksForSelectedPaths(selectedPaths, dotsxPath);
     } catch (error) {
       log.error(`Error initializing: ${error}`);
     }
@@ -61,22 +65,77 @@ export const initCommand = {
     }
   },
 
-  async createSelectedPaths(selectedPaths: FoundPath[]) {
-    const s = spinner({ indicator: 'timer' });
-    s.start(`Creating selected paths...`);
-    try {
-      selectedPaths.forEach((path) => {
-        if (path.type === 'file') {
-          FileLib.File.create(path.suggestedPath);
-        } else if (path.type === 'directory') {
-          FileLib.Directory.create(path.suggestedPath);
-        }
-        s.message(`${path.suggestedPath} created successfully`);
-      });
-      s.stop(`Selected paths created successfully`);
-    } catch (error) {
-      s.stop(`Error creating selected paths: ${error}`);
-      throw error;
+  async createSymlinksForSelectedPaths(selectedPaths: FoundPath[], dotsxPath: DotsxOsPath) {
+    if (selectedPaths.length === 0) {
+      log.info('No paths selected for symlinking');
+      return;
     }
+
+    const s = spinner();
+    s.start('Creating symlinks...');
+
+    let successCount = 0;
+    for (const path of selectedPaths) {
+      const systemPath = FileLib.expand(path.suggestedPath);
+      const dotsxSymlinkPath = FileLib.toDotsxPath(systemPath, dotsxPath.symlinks);
+
+      try {
+        SymlinkLib.safeSymlink(dotsxPath, systemPath, dotsxSymlinkPath);
+        s.message(`✓ ${path.suggestedPath}`);
+        successCount++;
+      } catch (error) {
+        log.error(`Failed to symlink ${path.suggestedPath}: ${error}`);
+      }
+    }
+
+    s.stop(`Created ${successCount}/${selectedPaths.length} symlink(s)`);
+  },
+
+  async createPackageManagerFiles(dotsxPath: DotsxOsPath) {
+    const osInfo = SystemLib.getOsInfo();
+    const packageManagers = getPackageManagerConfig(osInfo.distro || osInfo.family);
+
+    if (packageManagers.length === 0) {
+      log.warn('No package managers configured for this OS');
+      return;
+    }
+
+    const s = spinner();
+    s.start('Creating package manager files...');
+
+    // Create package manager metadata JSON
+    const packageMetadata: Record<string, string[]> = {};
+
+    for (const pm of packageManagers) {
+      const filePath = path.resolve(dotsxPath.packagesManager, pm.fileList);
+
+      // Create .txt file with helpful header comment
+      const header = [
+        `# ${pm.name} Package List`,
+        `#`,
+        `# How to use:`,
+        `# - Write one package name per line`,
+        `# - Lines starting with # are ignored (comments)`,
+        `# - Example:`,
+        `#   git`,
+        `#   curl`,
+        `#   # tmux  <- This line is commented, package ignored`,
+        `#`,
+        `# Commands:`,
+        `# - Install: ${pm.install.replace('%s', '<package>')}`,
+        `# - Remove:  ${pm.remove.replace('%s', '<package>')}`,
+        `# - Status:  ${pm.status.replace('%s', '<package>')}`,
+        `#`,
+        '',
+      ].join('\n');
+
+      FileLib.File.create(filePath, header);
+      packageMetadata[pm.name] = [];
+      s.message(`✓ ${pm.fileList}`);
+    }
+
+    FileLib.File.write(dotsxPath.packagesManagerConfig, JSON.stringify(packageManagers, null, 2));
+
+    s.stop(`Created ${packageManagers.length} package manager file(s)`);
   },
 };
