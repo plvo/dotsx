@@ -1,7 +1,7 @@
 import { log, spinner, text } from '@clack/prompts';
 import { FileLib } from '@/lib/file';
 import { GitLib } from '@/lib/git';
-import { DOTSX_PATH } from '@/old/constants';
+import { DOTSX_PATH } from '@/lib/constants';
 import type { CliCommand } from '@/types';
 
 export const gitCloneCommand: CliCommand = {
@@ -14,7 +14,7 @@ export const gitCloneCommand: CliCommand = {
       return;
     }
 
-    if (FileLib.isPathExists(DOTSX_PATH)) {
+    if (FileLib.isExists(DOTSX_PATH)) {
       const isRepo = await GitLib.isGitRepository(DOTSX_PATH);
 
       if (isRepo) {

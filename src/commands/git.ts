@@ -1,18 +1,18 @@
 import { confirm, log, select, spinner, text } from '@clack/prompts';
-import { DOTSX_PATH } from '@/lib/constants';
+import type { DotsxOsPath } from '@/lib/constants';
 import { GitLib } from '@/lib/git';
 import { gitCloneCommand } from './git-clone';
 import { symlinkCommand } from './symlink';
 
 export const gitCommand = {
-  async execute() {
+  async execute(dotsxOsPath: DotsxOsPath) {
     const isGitInstalled = await GitLib.isGitInstalled();
     if (!isGitInstalled) {
       log.error('Git is not installed on your system. Please install Git and try again.');
       return;
     }
 
-    const isRepo = await GitLib.isGitRepository(DOTSX_PATH);
+    const isRepo = await GitLib.isGitRepository(dotsxOsPath.baseOs);
 
     if (!isRepo) {
       const choice = await select({
@@ -28,7 +28,7 @@ export const gitCommand = {
       });
 
       if (choice === 'new') {
-        await this.createNewRepository();
+        await this.createNewRepository(dotsxOsPath);
       } else if (choice === 'clone') {
         await gitCloneCommand.execute();
       }
@@ -46,19 +46,19 @@ export const gitCommand = {
 
     switch (action) {
       case 'sync':
-        await this.gitSync();
+        await this.gitSync(dotsxOsPath);
         break;
       case 'pull':
-        await this.gitPull();
+        await this.gitPull(dotsxOsPath);
         break;
       case 'remote':
-        await this.manageRemote();
+        await this.manageRemote(dotsxOsPath);
         break;
     }
   },
 
-  async gitSync() {
-    const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
+  async gitSync(dotsxOsPath: DotsxOsPath) {
+    const gitInfo = await GitLib.getRepositoryInfo(dotsxOsPath.baseOs);
 
     if (!gitInfo.remoteUrl) {
       log.error('No remote repository configured. Add a remote first.');
@@ -68,7 +68,7 @@ export const gitCommand = {
       });
 
       if (shouldAdd) {
-        await this.addExistingRemote();
+        await this.addExistingRemote(dotsxOsPath);
         return;
       }
       return;
@@ -79,10 +79,10 @@ export const gitCommand = {
 
     try {
       // 1. Add all changes
-      await GitLib.addAll(DOTSX_PATH);
+      await GitLib.addAll(dotsxOsPath.baseOs);
 
       // 2. Check if there are changes to commit
-      const hasChanges = await GitLib.hasUncommittedChanges(DOTSX_PATH);
+      const hasChanges = await GitLib.hasUncommittedChanges(dotsxOsPath.baseOs);
       if (!hasChanges) {
         s.stop('No changes to sync');
         log.info('Repository is up to date');
@@ -91,10 +91,10 @@ export const gitCommand = {
 
       // 3. Commit with timestamp
       const timestamp = new Date().toISOString();
-      await GitLib.commit(DOTSX_PATH, `update dotsx [${timestamp}]`);
+      await GitLib.commit(dotsxOsPath.baseOs, `update dotsx [${timestamp}]`);
 
       // 4. Push to remote
-      await GitLib.pushToRemote(DOTSX_PATH, gitInfo.currentBranch);
+      await GitLib.pushToRemote(dotsxOsPath.baseOs, gitInfo.currentBranch);
 
       s.stop('✅ Synced successfully');
       log.success('Changes pushed to remote');
@@ -104,8 +104,8 @@ export const gitCommand = {
     }
   },
 
-  async gitPull() {
-    const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
+  async gitPull(dotsxOsPath: DotsxOsPath) {
+    const gitInfo = await GitLib.getRepositoryInfo(dotsxOsPath.baseOs);
 
     if (!gitInfo.remoteUrl) {
       log.error('No remote repository configured. Add a remote first.');
@@ -128,13 +128,13 @@ export const gitCommand = {
     s.start('Pulling from remote...');
 
     try {
-      await GitLib.pullFromRemote(DOTSX_PATH);
+      await GitLib.pullFromRemote(dotsxOsPath.baseOs);
       s.stop('✅ Pulled successfully');
 
       // Check for conflicts
-      const hasConflicts = await GitLib.hasConflicts(DOTSX_PATH);
+      const hasConflicts = await GitLib.hasConflicts(dotsxOsPath.baseOs);
       if (hasConflicts) {
-        const conflictedFiles = await GitLib.getConflictedFiles(DOTSX_PATH);
+        const conflictedFiles = await GitLib.getConflictedFiles(dotsxOsPath.baseOs);
         log.error('🚨 Git conflicts detected!');
         log.warn(`Conflicted files:\n${conflictedFiles.map((f) => `  - ${f}`).join('\n')}`);
         log.info('💡 Resolve conflicts manually, then run:');
@@ -146,7 +146,7 @@ export const gitCommand = {
 
       // Check symlinks
       log.info('Checking symlinks...');
-      const links = await symlinkCommand.checkStatus();
+      const links = await symlinkCommand.checkStatus(dotsxOsPath);
       if (links.incorrectSymlinks.length > 0) {
         const shouldFix = await confirm({
           message: `Fix ${links.incorrectSymlinks.length} broken symlink(s)?`,
@@ -154,7 +154,7 @@ export const gitCommand = {
         });
 
         if (shouldFix) {
-          await symlinkCommand.syncLinks(links);
+          await symlinkCommand.syncLinks(links, dotsxOsPath);
         }
       } else {
         log.success('✅ All symlinks correct');
@@ -176,8 +176,8 @@ export const gitCommand = {
     }
   },
 
-  async manageRemote() {
-    const gitInfo = await GitLib.getRepositoryInfo(DOTSX_PATH);
+  async manageRemote(dotsxOsPath: DotsxOsPath) {
+    const gitInfo = await GitLib.getRepositoryInfo(dotsxOsPath.baseOs);
 
     if (gitInfo.remoteUrl) {
       log.info(`Current remote: ${gitInfo.remoteUrl}`);
@@ -188,15 +188,15 @@ export const gitCommand = {
       });
 
       if (action === 'change') {
-        await this.addExistingRemote();
+        await this.addExistingRemote(dotsxOsPath);
       }
     } else {
       log.info('No remote repository configured');
-      await this.addExistingRemote();
+      await this.addExistingRemote(dotsxOsPath);
     }
   },
 
-  async createNewRepository() {
+  async createNewRepository(dotsxOsPath: DotsxOsPath) {
     const shouldAddRemote = await confirm({
       message: 'Do you want to connect this to a remote repository?',
       initialValue: true,
@@ -206,8 +206,8 @@ export const gitCommand = {
       const s = spinner();
       s.start('Initializing local Git repository...');
       try {
-        await GitLib.initRepository(DOTSX_PATH);
-        await GitLib.addAndCommit(DOTSX_PATH, 'feat: initial DotsX configuration');
+        await GitLib.initRepository(dotsxOsPath.baseOs);
+        await GitLib.addAndCommit(dotsxOsPath.baseOs, 'feat: initial DotsX configuration');
         s.stop('✅ Local repository created');
         log.success('Git repository initialized (local only)');
       } catch (error) {
@@ -218,10 +218,10 @@ export const gitCommand = {
     }
 
     // Atomic flow: get URL → check/create remote → init → add remote → push
-    await this.createWithRemoteAtomic();
+    await this.createWithRemoteAtomic(dotsxOsPath);
   },
 
-  async createWithRemoteAtomic() {
+  async createWithRemoteAtomic(dotsxOsPath: DotsxOsPath) {
     // Step 1: Get remote URL
     const remoteUrl = await text({
       message: 'Enter the remote repository URL (SSH only):',
@@ -314,15 +314,15 @@ export const gitCommand = {
 
       // Step 3: Init local repository
       s.start('Initializing Git repository...');
-      await GitLib.initRepository(DOTSX_PATH);
-      await GitLib.addAndCommit(DOTSX_PATH, 'feat: initial DotsX configuration');
+      await GitLib.initRepository(dotsxOsPath.baseOs);
+      await GitLib.addAndCommit(dotsxOsPath.baseOs, 'feat: initial DotsX configuration');
 
       // Step 4: Add remote
-      await GitLib.addRemote(DOTSX_PATH, 'origin', remoteUrl);
+      await GitLib.addRemote(dotsxOsPath.baseOs, 'origin', remoteUrl);
 
       // Step 5: Push
       s.message('Pushing to remote...');
-      await GitLib.pushAndSetUpstream(DOTSX_PATH);
+      await GitLib.pushAndSetUpstream(dotsxOsPath.baseOs);
 
       s.stop('✅ Repository created and synced');
       log.success('🎉 Git repository initialized and connected to remote!');
@@ -334,7 +334,7 @@ export const gitCommand = {
     }
   },
 
-  async addExistingRemote() {
+  async addExistingRemote(dotsxOsPath: DotsxOsPath) {
     const remoteUrl = await text({
       message: 'Enter the remote repository URL (SSH only):',
       placeholder: 'git@github.com:username/dotsx-config.git',
@@ -355,7 +355,7 @@ export const gitCommand = {
     }
 
     try {
-      await GitLib.addRemote(DOTSX_PATH, 'origin', remoteUrl);
+      await GitLib.addRemote(dotsxOsPath.baseOs, 'origin', remoteUrl);
       log.success('✅ Remote repository added successfully');
     } catch (error) {
       log.error(`❌ Failed to add remote: ${error instanceof Error ? error.message : 'Unknown error'}`);

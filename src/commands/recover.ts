@@ -2,6 +2,7 @@ import path from 'node:path';
 import { log, multiselect, select } from '@clack/prompts';
 import { ConsoleLib } from '@/lib/console';
 import { FileLib } from '@/lib/file';
+import { BACKUP_PATH, type DotsxOsPath } from '@/lib/constants';
 
 interface BackupFile {
   dotsxRelativePath: string;
@@ -10,7 +11,7 @@ interface BackupFile {
 }
 
 export const recoverCommand = {
-  async execute() {
+  async execute(dotsxPath: DotsxOsPath) {
     if (!FileLib.isDirectory(BACKUP_PATH)) {
       log.warn('No backups found. Backup directory does not exist.');
       return;
@@ -72,10 +73,10 @@ export const recoverCommand = {
       if (strategy === 'latest') {
         const latestBackup = backups[0];
         if (latestBackup) {
-          await this.restoreBackup(filePath, latestBackup);
+          await this.restoreBackup(dotsxPath, filePath, latestBackup);
         }
       } else {
-        await this.recoverFile(filePath, backups);
+        await this.recoverFile(dotsxPath, filePath, backups);
       }
     }
   },
@@ -84,7 +85,7 @@ export const recoverCommand = {
     const results: BackupFile[] = [];
 
     const scan = (dir: string, baseDir: string) => {
-      const items = FileLib.readDirectory(dir);
+      const items = FileLib.Directory.read(dir);
 
       for (const item of items) {
         const fullPath = path.join(dir, item);
@@ -132,19 +133,19 @@ export const recoverCommand = {
     return grouped;
   },
 
-  async restoreBackup(dotsxRelativePath: string, backup: BackupFile) {
+  async restoreBackup(dotsxOsPath: DotsxOsPath, dotsxRelativePath: string, backup: BackupFile) {
     try {
       // Restore to dotsx structure
-      const dotsxPath = path.join(DOTSX_PATH, dotsxRelativePath);
+      const dotsxFilePath = path.join(dotsxOsPath.baseOs, dotsxRelativePath);
 
       // Create parent directory
-      FileLib.createDirectory(path.dirname(dotsxPath));
+      FileLib.Directory.create(path.dirname(dotsxFilePath));
 
       // Copy backup to dotsx
       if (FileLib.isFile(backup.backupPath)) {
-        FileLib.copyFile(backup.backupPath, dotsxPath);
+        FileLib.File.copy(backup.backupPath, dotsxFilePath);
       } else if (FileLib.isDirectory(backup.backupPath)) {
-        FileLib.copyDirectory(backup.backupPath, dotsxPath);
+        FileLib.Directory.copy(backup.backupPath, dotsxFilePath);
       }
 
       const dateStr = ConsoleLib.getDisplayDate(backup.timestamp);
@@ -155,7 +156,7 @@ export const recoverCommand = {
     }
   },
 
-  async recoverFile(dotsxRelativePath: string, backups: BackupFile[]) {
+  async recoverFile(dotsxOsPath: DotsxOsPath, dotsxRelativePath: string, backups: BackupFile[]) {
     const options = backups.map((backup) => {
       const dateStr = ConsoleLib.getDisplayDate(backup.timestamp);
 
@@ -174,7 +175,7 @@ export const recoverCommand = {
 
     const backup = backups.find((b) => b.backupPath === selectedBackup);
     if (backup) {
-      await this.restoreBackup(dotsxRelativePath, backup);
+      await this.restoreBackup(dotsxOsPath, dotsxRelativePath, backup);
     }
   },
 };

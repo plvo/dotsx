@@ -4,11 +4,11 @@ import path from 'node:path';
 import { intro, isCancel, outro, select } from '@clack/prompts';
 import { binCommand } from './commands/bin';
 import { doctorCommand } from './commands/doctor';
-// import { gitCommand } from './commands/git';
+import { gitCommand } from './commands/git';
 // import { gitCloneCommand } from './commands/git-clone';
 import { initCommand } from './commands/init';
 import { packageCommand } from './commands/packages';
-// import { recoverCommand } from './commands/recover';
+import { recoverCommand } from './commands/recover';
 import { symlinkCommand } from './commands/symlink';
 import { ConsoleLib } from './lib/console';
 import { resolveDotsxOsPath } from './lib/constants';
@@ -64,8 +64,8 @@ async function main() {
     else if (action === 'symlink') await symlinkCommand.execute(dotsxPath);
     else if (action === 'bin') await binCommand.execute(dotsxPath);
     else if (action === 'pkg') await packageCommand.execute(osInfo.distro || osInfo.family, dotsxPath.packagesManager);
-    // else if (action === 'recover') await recoverCommand.execute();
-    // else if (action === 'git') await gitCommand.execute();
+    else if (action === 'git') await gitCommand.execute(dotsxPath);
+    else if (action === 'recover') await recoverCommand.execute(dotsxPath);
   }
 }
 

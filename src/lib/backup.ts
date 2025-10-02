@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { log } from '@clack/prompts';
 import { FileLib } from '../lib/file';
-import { BACKUP_LIMIT_PER_FILE, BACKUP_METADATA_PATH, BACKUP_PATH } from './constants';
+import { BACKUP_LIMIT_PER_FILE, BACKUP_METADATA_PATH, BACKUP_PATH, type DotsxOsPath } from './constants';
 
 /**
  * Backup metadata structure
@@ -241,105 +241,54 @@ export const BackupLib = {
   },
 
   /**
-   * Load all available domains (IDE, Terminal)
-   * @returns Array of Domain objects
-   */
-  loadAllDomains(): any[] {
-    try {
-      const { cursorDomain, vscodeDomain } = require('../domains/ide');
-      const { zshDomain, bashDomain, tmuxDomain } = require('../domains/terminal');
-
-      return [cursorDomain, vscodeDomain, zshDomain, bashDomain, tmuxDomain].filter(Boolean);
-    } catch (error) {
-      return [];
-    }
-  },
-
-  /**
    * Resolve system path from dotsx path
-   * Handles both __home__ notation and domain-based symlinks
+   * Converts __home__ notation to actual home directory
    *
    * Examples:
-   *   ~/.dotsx/symlinks/__home__/.zshrc → /home/plv/.zshrc
-   *   ~/.dotsx/ide/cursor/settings.json → ~/.config/Cursor/User/settings.json (via domain)
-   *   ~/.dotsx/terminal/zsh/.zshrc → ~/.zshrc (via domain)
+   *   ~/.dotsx/<os>/symlinks/__home__/.zshrc → /home/plv/.zshrc
+   *   ~/.dotsx/<os>/symlinks/__home__/.config/Code/User/settings.json → ~/.config/Code/User/settings.json
    *
    * @param dotsxPath - Path in dotsx
+   * @param dotsxOsPath - DotsX OS path structure
    * @returns Corresponding system path or null
    */
-  resolveSystemPath(dotsxPath: string): string | null {
+  resolveSystemPath(dotsxPath: string, dotsxOsPath: DotsxOsPath): string | null {
     try {
-      const { DOTSX_PATH } = require('./constants');
-
-      // Case 1: symlinks/__home__/... → expand __home__ to actual home
-      const symlinkDir = path.join(DOTSX_PATH, 'symlinks');
-
-      if (dotsxPath.startsWith(symlinkDir)) {
-        const relativePath = path.relative(symlinkDir, dotsxPath);
-        // Convert __home__ to actual home directory
-        return FileLib.expand(relativePath);
+      // Only handle symlinks directory - bin and packages don't need system paths
+      if (!dotsxPath.startsWith(dotsxOsPath.symlinks)) {
+        return null;
       }
 
-      // Case 2: IDE/Terminal → find corresponding system symlink via domains
-      const allDomains = this.loadAllDomains();
-      const { SystemLib } = require('./system');
-      const family = SystemLib.getOsInfo().family;
+      // Get relative path from symlinks directory
+      const relativePath = path.relative(dotsxOsPath.symlinks, dotsxPath);
 
-      for (const domain of allDomains) {
-        if (!domain.symlinkPaths) continue;
-
-        const symlinkPaths = domain.symlinkPaths[family] || [];
-
-        for (const declaredPath of symlinkPaths) {
-          const systemPath = FileLib.expand(declaredPath);
-
-          // Check if this systemPath is a symlink pointing to dotsx
-          if (FileLib.isSymLink(systemPath)) {
-            try {
-              const target = fs.readlinkSync(systemPath);
-              const resolvedTarget = path.resolve(path.dirname(systemPath), target);
-
-              // If symlink points to a parent directory of dotsxPath
-              if (dotsxPath.startsWith(resolvedTarget)) {
-                // Calculate relative path and resolve to system path
-                const relativeToTarget = path.relative(resolvedTarget, dotsxPath);
-                return path.join(systemPath, relativeToTarget);
-              }
-
-              // If symlink points exactly to dotsxPath
-              if (resolvedTarget === dotsxPath) {
-                return systemPath;
-              }
-            } catch {}
-          }
-        }
-      }
-
-      return null;
+      // Expand __home__ notation to actual home directory
+      return FileLib.expand(relativePath);
     } catch (_error) {
       return null;
     }
   },
 
   /**
-   * Perform daily backup check for all files in ~/.dotsx
+   * Perform daily backup check for all files in ~/.dotsx/<os>/symlinks
    * Only creates backups if needed (once per day per file)
    * Silent if no backups are created
+   * @param dotsxOsPath - DotsX OS path structure
    */
-  async performDailyBackupCheck(): Promise<void> {
+  async performDailyBackupCheck(dotsxOsPath: DotsxOsPath): Promise<void> {
     try {
-      // ✅ Scan ALL files in ~/.dotsx recursively (files only, no directories)
-      const allFiles = this.scanFilesOnly(DOTSX_PATH);
+      // ✅ Scan ALL files in ~/.dotsx/<os>/symlinks recursively (files only, no directories)
+      const allFiles = this.scanFilesOnly(dotsxOsPath.symlinks);
 
       let backupsCreated = 0;
 
       for (const dotsxFilePath of allFiles) {
-        const dotsxRelativePath = path.relative(DOTSX_PATH, dotsxFilePath);
+        const dotsxRelativePath = path.relative(dotsxOsPath.baseOs, dotsxFilePath);
 
         // Check if backup is needed today
         if (this.shouldCreateBackup(dotsxRelativePath)) {
           // Resolve corresponding system path
-          const systemPath = this.resolveSystemPath(dotsxFilePath);
+          const systemPath = this.resolveSystemPath(dotsxFilePath, dotsxOsPath);
 
           // Only backup if system path exists
           if (systemPath && FileLib.isExists(systemPath)) {
