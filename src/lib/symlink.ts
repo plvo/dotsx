@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { log } from '@clack/prompts';
+import { BackupLib } from './backup';
+import type { DotsxOsPath } from './constants';
 import { FileLib } from './file';
 
 export namespace SymlinkLib {
@@ -18,12 +20,17 @@ export namespace SymlinkLib {
 
   /**
    * Creates a safe symlink with backup.
+   * @param dotsxOsPath - DotsX OS path (e.g., /home/user/.dotsx/ubuntu/symlinks)
    * @param systemPath - System file path (e.g., /home/user/.zshrc)
-   * @param dotsxPath - DotsX content path (e.g., /home/user/.dotsx/symlinks/__home__/.zshrc)
+   * @param dotsxPath - DotsX content path (e.g., /home/user/.dotsx/ubuntu/symlinks/__home__/.zshrc)
    */
-  export function safeSymlink(systemPath: string, dotsxPath: string) {
-    if (!FileLib.isExists(systemPath)) {
-      throw new Error(`Source path does not exist: ${systemPath}`);
+  export function safeSymlink(dotsxOsPath: DotsxOsPath, systemPath: string, dotsxPath: string) {
+    const systemExists = FileLib.isExists(systemPath);
+    const dotsxExists = FileLib.isExists(dotsxPath);
+
+    // Check if at least one path exists
+    if (!systemExists && !dotsxExists) {
+      throw new Error(`Neither system path nor dotsx path exists: ${systemPath}`);
     }
 
     // Early return: If systemPath is already a correct symlink to dotsxPath, nothing to do
@@ -32,50 +39,59 @@ export namespace SymlinkLib {
       return;
     }
 
-    const dotsxRelativePath = path.relative(DOTSX_PATH, dotsxPath);
+    const dotsxRelativePath = path.relative(dotsxOsPath.symlinks, dotsxPath);
 
-    let sourceToBackup = systemPath;
-    let sourceToMove = systemPath;
+    // Only backup/move if systemPath exists (first-time setup scenario)
+    if (systemExists) {
+      let sourceToBackup = systemPath;
+      let sourceToMove = systemPath;
 
-    if (FileLib.isSymLink(systemPath)) {
-      try {
-        const symlinkTarget = fs.readlinkSync(systemPath);
-        const resolvedPath = path.resolve(path.dirname(systemPath), symlinkTarget);
+      if (FileLib.isSymLink(systemPath)) {
+        try {
+          const symlinkTarget = fs.readlinkSync(systemPath);
+          const resolvedPath = path.resolve(path.dirname(systemPath), symlinkTarget);
 
-        if (FileLib.isExists(resolvedPath)) {
-          sourceToBackup = resolvedPath;
-          sourceToMove = resolvedPath;
-          log.info(`Following symlink to actual content: ${FileLib.display(resolvedPath)}`);
+          if (FileLib.isExists(resolvedPath)) {
+            sourceToBackup = resolvedPath;
+            sourceToMove = resolvedPath;
+            log.info(`Following symlink to actual content: ${FileLib.display(resolvedPath)}`);
+          }
+
+          fs.unlinkSync(systemPath);
+        } catch (error) {
+          log.warning(`Could not resolve symlink ${FileLib.display(systemPath)}: ${error}`);
+          // If we can't resolve it, just delete the broken symlink
+          fs.unlinkSync(systemPath);
         }
-
-        fs.unlinkSync(systemPath);
-      } catch (error) {
-        log.warning(`Could not resolve symlink ${FileLib.display(systemPath)}: ${error}`);
-        // If we can't resolve it, just delete the broken symlink
-        fs.unlinkSync(systemPath);
       }
-    }
 
-    // Create daily backup in ~/.backup.dotsx (mirrors dotsx structure)
-    if (BackupLib.shouldCreateBackup(dotsxRelativePath)) {
-      BackupLib.createDailyBackup(dotsxRelativePath, sourceToBackup);
+      // Create daily backup in ~/.backup.dotsx (mirrors dotsx structure)
+      if (BackupLib.shouldCreateBackup(dotsxRelativePath)) {
+        BackupLib.createDailyBackup(dotsxRelativePath, sourceToBackup);
+      } else {
+        log.info(`Backup already created today for ${FileLib.display(systemPath)}`);
+      }
+
+      // Move content to dotsx (only if source is not already the dotsx path)
+      if (sourceToMove !== dotsxPath && FileLib.isExists(sourceToMove)) {
+        // Create parent directory for dotsx path
+        FileLib.Directory.create(path.dirname(dotsxPath));
+
+        if (FileLib.isFile(sourceToMove)) {
+          FileLib.File.copy(sourceToMove, dotsxPath);
+          FileLib.File.deleteFile(sourceToMove);
+        } else if (FileLib.isDirectory(sourceToMove)) {
+          FileLib.Directory.copy(sourceToMove, dotsxPath);
+          FileLib.Directory.deleteDirectory(sourceToMove);
+        }
+      }
     } else {
-      log.info(`Backup already created today for ${FileLib.display(systemPath)}`);
+      // Sync scenario: systemPath missing, dotsxPath exists
+      log.info(`System path missing, recreating symlink from dotsx: ${FileLib.display(systemPath)}`);
     }
 
-    // Create parent directory for dotsx path
-    FileLib.Directory.create(path.dirname(dotsxPath));
-
-    // Move content to dotsx (only if source is not already the dotsx path)
-    if (sourceToMove !== dotsxPath && FileLib.isExists(sourceToMove)) {
-      if (FileLib.isFile(sourceToMove)) {
-        FileLib.File.copy(sourceToMove, dotsxPath);
-        FileLib.File.deleteFile(sourceToMove);
-      } else if (FileLib.isDirectory(sourceToMove)) {
-        FileLib.Directory.copy(sourceToMove, dotsxPath);
-        FileLib.Directory.deleteDirectory(sourceToMove);
-      }
-    }
+    // Ensure parent directory exists for system symlink
+    FileLib.Directory.create(path.dirname(systemPath));
 
     // Ensure systemPath doesn't exist before creating symlink
     // (in case it's still there after processing)

@@ -1,16 +1,9 @@
-import { groupMultiselect, isCancel, log, type Option, outro, spinner } from '@clack/prompts';
+import { groupMultiselect, isCancel, log, outro, spinner } from '@clack/prompts';
 import type { DotsxOsPath } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
-import { type OsInfo, SystemLib } from '@/lib/system';
-import { getSuggestionsByOs, type Suggestion } from '@/suggestions';
+import { type FoundPath, SuggestionLib } from '@/lib/suggestion';
+import { SystemLib } from '@/lib/system';
 import { binCommand } from './bin';
-
-interface FoundPath {
-  suggestedPath: string;
-  type: 'file' | 'directory';
-}
-
-type GroupMultiselectOptions = Record<string, Option<FoundPath>[]>;
 
 export const initCommand = {
   async execute(dotsxPath: DotsxOsPath) {
@@ -19,9 +12,13 @@ export const initCommand = {
 
       log.info(`🖥️  Initializing on a ${osInfo.family} ${osInfo.distro} ${osInfo.release} system...`);
 
-      const availableSuggestions = getSuggestionsByOs(osInfo.family);
-      const existingPaths = this.getExistingSuggestedPaths(availableSuggestions, osInfo);
-      const options = this.buildAppBasedOptions(existingPaths, availableSuggestions);
+      const availableSuggestions = SuggestionLib.getAvailableSuggestions(osInfo);
+      const existingPaths = SuggestionLib.getExistingSuggestedPaths(availableSuggestions, osInfo);
+
+      const options = SuggestionLib.buildGroupedOptions<FoundPath>(existingPaths, (path) => ({
+        suggestedPath: path.suggestedPath,
+        type: path.type,
+      }));
 
       // Wait for the terminal to be ready, this is a workaround to avoid the prompt being canceled
       await new Promise((resolve) => setTimeout(resolve, 1));
@@ -43,68 +40,6 @@ export const initCommand = {
     } catch (error) {
       log.error(`Error initializing: ${error}`);
     }
-  },
-
-  getExistingSuggestedPaths(availableSuggestions: Suggestion[], osInfo: OsInfo) {
-    const s = spinner();
-    s.start('Checking suggested paths...');
-
-    const existingPaths: Record<string, FoundPath[]> = {};
-
-    try {
-      availableSuggestions.forEach((suggestion) => {
-        const paths = suggestion.pathsToCheck[osInfo.family];
-        if (!paths) return;
-
-        const foundPaths: FoundPath[] = [];
-
-        paths.forEach((suggestedPath) => {
-          if (FileLib.isFile(suggestedPath)) {
-            foundPaths.push({ suggestedPath, type: 'file' });
-          } else if (FileLib.isDirectory(suggestedPath)) {
-            foundPaths.push({ suggestedPath, type: 'directory' });
-          }
-        });
-
-        if (foundPaths.length > 0) {
-          existingPaths[suggestion.name] = foundPaths;
-        }
-      });
-
-      s.stop(`Found ${Object.values(existingPaths).flat().length} existing paths`);
-      return existingPaths;
-    } catch (error) {
-      s.stop(`Error checking suggested paths: ${error}`);
-      throw error;
-    }
-  },
-
-  buildAppBasedOptions(
-    existingPaths: Record<string, FoundPath[]>,
-    availableSuggestions: Suggestion[],
-  ): GroupMultiselectOptions {
-    const options: GroupMultiselectOptions = {};
-
-    availableSuggestions.forEach((suggestion) => {
-      const foundPaths = existingPaths[suggestion.name];
-
-      if (!foundPaths || foundPaths.length === 0) return;
-
-      options[suggestion.name] = [];
-
-      foundPaths.forEach((path) => {
-        const fileName = path.suggestedPath;
-        const appOptions = options[suggestion.name];
-        if (appOptions) {
-          appOptions.push({
-            value: { suggestedPath: path.suggestedPath, type: path.type },
-            label: fileName,
-          });
-        }
-      });
-    });
-
-    return options;
   },
 
   async handleDotsxDirectoryCreation(dotsxPath: DotsxOsPath) {

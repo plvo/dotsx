@@ -1,667 +1,364 @@
 # 📋 TODO List - DotsX
 
-Date de mise à jour : 2025-09-30
+## 🔄 ARCHITECTURE REFACTORING - IN PROGRESS
+
+### ✅ Completed Refactoring (v1.5)
+
+- [x] **OS-based structure**: Migrated from domain-based (`ide/`, `terminal/`, `os/`) to OS-first structure (`~/.dotsx/<os>/{bin,symlinks,packages}`)
+- [x] **DotsxOsPath interface**: New unified path resolver replacing old nested domain paths
+- [x] **Suggestion system**: Declarative metadata for detecting tools (replaced hardcoded domains)
+- [x] **Backup system**: `src/lib/backup.ts` with daily backup logic + metadata tracking
+- [x] **SymlinkLib namespace**: Centralized symlink operations in `src/lib/symlink.ts`
+- [x] **Commands refactored**:
+  - [x] `init` - Uses new suggestion system + DotsxOsPath
+  - [x] `bin` - Adapted to OS-based structure
+  - [x] `git` - Updated to work with new structure
+  - [x] `symlink` - Fully migrated with enhanced features (see below)
+
+### ✅ Completed - Command Migration (v1.5)
+
+**Priority: HIGH** | **Time: 2-3h** | **Status: COMPLETED**
+
+#### 1. Migrate `symlink` command ✅
+**Status:** ✅ COMPLETED
+**Files:** `src/commands/symlink.ts`
+
+**Completed changes:**
+- ✅ Removed `@/old/constants` import
+- ✅ Now receives `dotsxOsPath` as parameter from `index.ts`
+- ✅ Uses `SymlinkLib.safeSymlink()` instead of old `FileLib.safeSymlink()`
+- ✅ Replaced `getDotsxPath()` with centralized `FileLib.toDotsxPath()` helper
+- ✅ Enhanced `getSymlinks()` with directory symlink detection (heuristic-based)
+- ✅ Added `isDirSymlinkCandidate()` to detect if directory should be symlinked
+- ✅ Added "Manage suggestions" option to add IDE/terminal configs
+- ✅ Integrated with `SuggestionLib` for centralized suggestion handling
+- ✅ Filters already-configured paths from suggestions
+- ✅ Fixed sync to handle missing system paths (recreate from dotsx content)
+
+**Key improvements:**
+1. **Directory symlink detection**: Distinguishes between directory symlinks and container directories
+2. **Suggestion filtering**: Shows only unconfigured paths in suggestions menu
+3. **Sync resilience**: Can recreate symlinks when system files deleted but dotsx has content
+4. **Centralized helpers**: Uses `FileLib.toDotsxPath()` and `SuggestionLib.buildGroupedOptions()`
 
 ---
 
-## ✅ Version 1.0 - TERMINÉE (100%)
+#### 2. Create `check` command
+**Status:** MISSING (partially exists in git pull)
+**Files:** Create `src/commands/check.ts`
 
-### Features implémentées
-- [x] Refacto notation `~` → `__home__` pour paths user-agnostic
-- [x] Validation SSH stricte (uniquement `git@github.com:...`)
-- [x] `dotsx git sync` atomique (add + commit + push en une commande)
-- [x] `dotsx git pull` avec validation structure + symlinks
-- [x] `MAX_BACKUPS_PER_FILE = 7` (conforme spec)
-- [x] Commande `dotsx doctor` avec diagnostic complet + fix auto
+**Purpose:** Standalone command to validate symlink integrity
 
----
-
-## 🟡 Version 1.1 - EN COURS (0%)
-
-### 1. Backup quotidien automatique
-**Priorité:** MOYENNE
-**Temps estimé:** 30 min
-**Fichiers concernés:**
-- `src/lib/file.ts`
-- Nouveau fichier : `src/lib/backup.ts` (optionnel pour refacto)
-
-**Description:**
-Actuellement, un backup est créé **à chaque fois** qu'un symlink est modifié/créé. Selon CLAUDE.md, le backup devrait être fait **maximum 1 fois par jour** pour le même fichier.
-
-**Implémentation suggérée:**
-
-1. Créer un fichier de métadonnées `.dotsx/.last-backup.json` :
-```json
-{
-  "symlinks/__home__/.zshrc": "2025-09-30",
-  "symlinks/__home__/.config/Code/User/settings.json": "2025-09-29"
-}
-```
-
-2. Modifier `FileLib.safeSymlink()` (ligne ~247) :
+**Implementation:**
 ```typescript
-async safeSymlink(systemPath: string, dotsxPath: string) {
-  // ... existing checks ...
+export const checkCommand = {
+  async execute(dotsxOsPath: DotsxOsPath) {
+    log.info('🔍 Checking symlink integrity...');
 
-  const dotsxRelativePath = path.relative(DOTSX_PATH, dotsxPath);
-  const today = new Date().toISOString().split('T')[0]; // "2025-09-30"
+    const links = await symlinkCommand.checkStatus();
 
-  // Check if backup already done today
-  const lastBackupDate = this.getLastBackupDate(dotsxRelativePath);
-
-  if (lastBackupDate !== today) {
-    // Create backup in ~/.backup.dotsx
-    this.createBackup(dotsxRelativePath, sourceToBackup);
-    this.saveLastBackupDate(dotsxRelativePath, today);
-  } else {
-    log.info(`Backup already done today for ${displayPath}`);
-  }
-
-  // ... rest of existing code ...
-}
-```
-
-3. Ajouter méthodes helper :
-```typescript
-getLastBackupDate(dotsxRelativePath: string): string | null {
-  const metadataPath = path.join(DOTSX_PATH, '.last-backup.json');
-  if (!this.isFile(metadataPath)) return null;
-
-  const data = JSON.parse(this.readFile(metadataPath));
-  return data[dotsxRelativePath] || null;
-}
-
-saveLastBackupDate(dotsxRelativePath: string, date: string): void {
-  const metadataPath = path.join(DOTSX_PATH, '.last-backup.json');
-
-  let data = {};
-  if (this.isFile(metadataPath)) {
-    data = JSON.parse(this.readFile(metadataPath));
-  }
-
-  data[dotsxRelativePath] = date;
-
-  this.writeToFile(metadataPath, JSON.stringify(data, null, 2));
-}
-```
-
-**Tests à faire:**
-- Créer un symlink → backup créé
-- Modifier le symlink le même jour → backup skip
-- Modifier le symlink le lendemain → nouveau backup créé
-- Vérifier que `.last-backup.json` est bien versionné dans Git
-
-**Bénéfices:**
-- Réduit taille de `~/.backup.dotsx` (pas de backup spam)
-- Conforme à la spec CLAUDE.md
-- Garde historique quotidien sur 7 jours
-
----
-
-### 2. Améliorer détection distro Linux
-**Priorité:** MOYENNE
-**Temps estimé:** 20 min
-**Fichiers concernés:**
-- `src/lib/system.ts` (lignes 96-107)
-
-**Description:**
-La détection actuelle lit juste `/etc/os-release` ID field. Problèmes :
-- Ne détecte pas les dérivés (Pop!_OS, Linux Mint, Zorin, etc.)
-- Pas de fallback si fichier manquant
-- Pas de mapping vers domaines parents
-
-**Code actuel (simplifié):**
-```typescript
-getLinuxDistro(): string | null {
-  try {
-    const data = fs.readFileSync('/etc/os-release', 'utf-8');
-    const idMatch = data.match(/^ID=(.+)$/m);
-    if (idMatch?.[1]) {
-      return idMatch[1].replace(/"/g, '').toLowerCase();
+    if (links.incorrectSymlinks.length === 0) {
+      log.success('✅ All symlinks are valid');
+      return;
     }
-  } catch {
-    return null;
-  }
-  return null;
-}
-```
 
-**Amélioration suggérée:**
+    const shouldRepair = await confirm({
+      message: `Fix ${links.incorrectSymlinks.length} broken symlink(s)?`,
+      initialValue: true,
+    });
 
-```typescript
-getLinuxDistro(): string | null {
-  try {
-    // 1. Try /etc/os-release (standard)
-    const data = fs.readFileSync('/etc/os-release', 'utf-8');
-
-    // Get ID and ID_LIKE (for derivatives)
-    const idMatch = data.match(/^ID=(.+)$/m);
-    const idLikeMatch = data.match(/^ID_LIKE=(.+)$/m);
-
-    if (idMatch?.[1]) {
-      const id = idMatch[1].replace(/"/g, '').toLowerCase();
-
-      // Direct mapping for derivatives
-      const derivatives: Record<string, string> = {
-        'pop': 'ubuntu',        // Pop!_OS → Ubuntu
-        'linuxmint': 'ubuntu',  // Linux Mint → Ubuntu
-        'zorin': 'ubuntu',      // Zorin → Ubuntu
-        'elementary': 'ubuntu', // Elementary → Ubuntu
-        'neon': 'ubuntu',       // KDE Neon → Ubuntu
-        'manjaro': 'arch',      // Manjaro → Arch
-        'endeavouros': 'arch',  // EndeavourOS → Arch
-        'garuda': 'arch',       // Garuda → Arch
-      };
-
-      // Check if it's a known derivative
-      if (derivatives[id]) {
-        log.info(`Detected ${id} (derivative of ${derivatives[id]})`);
-        return derivatives[id];
-      }
-
-      // If ID_LIKE exists, use it (e.g., "ubuntu debian")
-      if (idLikeMatch?.[1]) {
-        const idLike = idLikeMatch[1].replace(/"/g, '').toLowerCase();
-        const likes = idLike.split(' ');
-
-        // Check if any parent is supported
-        for (const like of likes) {
-          if (['debian', 'ubuntu', 'fedora', 'arch', 'suse'].includes(like)) {
-            log.info(`Detected ${id} (based on ${like})`);
-            return like;
-          }
-        }
-      }
-
-      return id;
+    if (shouldRepair) {
+      await symlinkCommand.syncLinks(links);
     }
-  } catch {
-    // Fallback: try lsb_release command
-    try {
-      const result = execSync('lsb_release -is', { encoding: 'utf-8' });
-      return result.trim().toLowerCase();
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-}
-```
-
-**Tests à faire:**
-- Ubuntu → détecte "ubuntu"
-- Pop!_OS → détecte "ubuntu" (via mapping)
-- Manjaro → détecte "arch" (via mapping)
-- Debian → détecte "debian"
-- Unknown distro avec ID_LIKE=debian → détecte "debian"
-
-**Bénéfices:**
-- Support des distros dérivées populaires
-- Fallback robuste si `/etc/os-release` manquant
-- Meilleur mapping vers package managers existants
-
----
-
-## 🟢 Version 1.2 - BACKLOG (~6h)
-
-### 3. Tests unitaires
-**Priorité:** BASSE
-**Temps estimé:** 2-3h
-
-**Description:**
-Les scripts de test existent dans `package.json` mais aucun test implémenté :
-```json
-"test:unit": "bun test tests/unit",
-"test:integration": "bun test tests/integration",
-"test": "bun test"
-```
-
-**Tests critiques à créer:**
-
-#### A. `tests/unit/lib/file.test.ts`
-```typescript
-// Test expandPath
-describe('FileLib.expandPath', () => {
-  test('converts __home__/ to absolute path', () => {
-    const result = FileLib.expandPath('__home__/.zshrc');
-    expect(result).toBe('/home/testuser/.zshrc');
-  });
-
-  test('converts ~/ to absolute path (legacy)', () => {
-    const result = FileLib.expandPath('~/.zshrc');
-    expect(result).toBe('/home/testuser/.zshrc');
-  });
-
-  test('keeps absolute paths unchanged', () => {
-    const result = FileLib.expandPath('/etc/config');
-    expect(result).toBe('/etc/config');
-  });
-});
-
-// Test getDisplayPath
-describe('FileLib.getDisplayPath', () => {
-  test('converts /home/user to __home__', () => {
-    const result = FileLib.getDisplayPath('/home/testuser/.zshrc');
-    expect(result).toBe('__home__/.zshrc');
-  });
-
-  test('keeps non-home paths unchanged', () => {
-    const result = FileLib.getDisplayPath('/etc/config');
-    expect(result).toBe('/etc/config');
-  });
-});
-
-// Test safeSymlink
-describe('FileLib.safeSymlink', () => {
-  test('creates backup before symlinking', async () => {
-    // TODO: Mock fs operations
-  });
-
-  test('skips if symlink already correct', async () => {
-    // TODO: Mock fs operations
-  });
-});
-```
-
-#### B. `tests/unit/lib/git.test.ts`
-```typescript
-describe('GitLib.validateGitUrl', () => {
-  test('accepts SSH format git@github.com:user/repo.git', () => {
-    expect(GitLib.validateGitUrl('git@github.com:user/repo.git')).toBe(true);
-  });
-
-  test('rejects HTTPS format', () => {
-    expect(GitLib.validateGitUrl('https://github.com/user/repo.git')).toBe(false);
-  });
-
-  test('rejects invalid URLs', () => {
-    expect(GitLib.validateGitUrl('not-a-git-url')).toBe(false);
-  });
-});
-
-describe('GitLib.extractRepoInfoFromUrl', () => {
-  test('extracts owner and repo from SSH URL', () => {
-    const result = GitLib.extractRepoInfoFromUrl('git@github.com:plvo/dotsx.git');
-    expect(result).toEqual({ owner: 'plvo', repo: 'dotsx' });
-  });
-
-  test('returns null for invalid URL', () => {
-    const result = GitLib.extractRepoInfoFromUrl('invalid-url');
-    expect(result).toBeNull();
-  });
-});
-```
-
-#### C. `tests/integration/symlink.test.ts`
-```typescript
-// Test full symlink workflow
-describe('Symlink integration', () => {
-  test('creates symlink and backup', async () => {
-    // TODO: Setup test environment
-    // TODO: Create test file
-    // TODO: Run symlinkCommand.addLink()
-    // TODO: Verify symlink created
-    // TODO: Verify backup created
-    // TODO: Cleanup
-  });
-});
-```
-
-**Setup requis:**
-```bash
-bun add -D @types/bun-test
-```
-
-**Bénéfices:**
-- Détecte régressions
-- Documente comportement attendu
-- Facilite refacto future
-
----
-
-### 4. README.md utilisateur
-**Priorité:** BASSE
-**Temps estimé:** 1h
-
-**Description:**
-Créer documentation complète pour les utilisateurs.
-
-**Structure suggérée:**
-
-```markdown
-# 🚀 DotsX - Dotfiles Manager
-
-Centralize and version your dotfiles on GitHub with symlinks.
-
-## ✨ Features
-
-- 📦 **Multi-platform**: Linux (Debian, Arch, Fedora, etc.), macOS
-- 🔗 **Symlink management**: Automatic backup + restore
-- 🔧 **Git integration**: Atomic sync, SSH-only
-- 💻 **IDE configs**: VSCode, Cursor
-- ��️ **Terminal configs**: ZSH, Bash, TMUX
-- 📋 **Package managers**: apt, snap, flatpak, dnf, pacman, yay, brew
-- 🩺 **Health check**: `dotsx doctor` for diagnostics
-
-## 🛠️ Installation
-
-### Prerequisites
-- Git
-- Bun runtime
-
-### Install
-\`\`\`bash
-git clone https://github.com/user/dotsx.git
-cd dotsx
-bun install
-bun run build
-sudo ln -s $(pwd)/dotsx /usr/local/bin/dotsx
-\`\`\`
-
-## 🚀 Quick Start
-
-### 1. Initialize from scratch
-\`\`\`bash
-dotsx
-# Choose: 🌱 From scratch
-# Select terminals, IDEs to configure
-\`\`\`
-
-### 2. Initialize from existing GitHub repo
-\`\`\`bash
-dotsx
-# Choose: 🔧 From Git
-# Enter: git@github.com:username/dotsx-config.git
-\`\`\`
-
-### 3. Run diagnostics
-\`\`\`bash
-dotsx
-# Choose: 🩺 Doctor
-# Review + auto-fix issues
-\`\`\`
-
-## 📖 Common Workflows
-
-### Sync changes to GitHub
-\`\`\`bash
-dotsx → 🔧 Git → 🔄 Sync
-# Atomic: add + commit + push
-\`\`\`
-
-### Pull from another machine
-\`\`\`bash
-dotsx → 🔧 Git → 📥 Pull
-# Auto-validates structure + symlinks
-\`\`\`
-
-### Add new symlink
-\`\`\`bash
-dotsx → 📋 Symlinks → ➕ Add new link
-# Enter: ~/.config/myapp/config.yml
-# Creates: ~/.dotsx/symlinks/__home__/.config/myapp/config.yml
-\`\`\`
-
-### Install packages from list
-\`\`\`bash
-dotsx → 📦 ubuntu packages → apt
-# Select packages to install
-\`\`\`
-
-## 🗂️ Directory Structure
-
-\`\`\`
-~/.dotsx/
-  ├── bin/                    # Executable scripts
-  │   ├── my-script.sh
-  │   └── _dotsx-bin.aliases  # Auto-generated aliases
-  ├── ide/
-  │   ├── vscode/
-  │   └── cursor/
-  ├── terminal/
-  │   ├── zsh/
-  │   ├── bash/
-  │   └── tmux/
-  ├── os/
-  │   └── debian/
-  │       ├── apt.txt         # Package lists
-  │       ├── snap.txt
-  │       └── flatpak.txt
-  └── symlinks/
-      └── __home__/           # User-agnostic notation
-          ├── .zshrc
-          └── .config/
-              └── Code/
-                  └── User/
-                      └── settings.json
-
-~/.backup.dotsx/              # Automatic backups (7 per file)
-  └── symlinks/
-      └── __home__/
-          └── .zshrc.20250930123456.dotsx.backup
-\`\`\`
-
-## 🩺 Doctor Command
-
-Run full diagnostics:
-\`\`\`bash
-dotsx → 🩺 Doctor
-\`\`\`
-
-Checks:
-- ✅ System info
-- ✅ Directory structure
-- ✅ Git repository status
-- ✅ All domain configurations
-- ✅ Symlinks validity
-- 🔧 Auto-fix available issues
-
-## 🔧 Troubleshooting
-
-### Symlink broken after pull
-\`\`\`bash
-dotsx → 🩺 Doctor
-# Review broken symlinks
-# Accept auto-fix
-\`\`\`
-
-### Git conflict
-\`\`\`bash
-# Resolve manually
-git add .
-git commit
-dotsx → 🩺 Doctor  # Validate
-\`\`\`
-
-### Package manager config missing
-\`\`\`bash
-dotsx → 🩺 Doctor
-# Auto-creates missing configs
-\`\`\`
-
-## 📝 Configuration
-
-### Add custom OS domain
-Edit `src/domains/os.ts`:
-\`\`\`typescript
-export const myDistro: Domain = {
-  name: 'mydistro',
-  distro: ['mydistro'],
-  type: 'os',
-  packageManagers: {
-    mypkg: {
-      configPath: DOTSX.OS.MYDISTRO.PKG,
-      install: 'mypkg install %s',
-      remove: 'mypkg remove %s',
-      status: 'mypkg list | grep %s',
-      defaultContent: '# Packages\\n',
-    },
   },
 };
-\`\`\`
+```
 
-## 🤝 Contributing
-
-Contributions welcome! See CONTRIBUTING.md
-
-## 📄 License
-
-MIT License
-\`\`\`
-
-**Fichier à créer:** `/README.md` (root)
+**Integration:**
+- Add to main CLI menu
+- Called automatically after `git pull`
+- Can be run standalone for diagnostics
 
 ---
 
-### 5. Support Fish shell
-**Priorité:** BASSE
-**Temps estimé:** 10 min
+### 🔴 Critical Cleanup Tasks
 
-**Fichiers concernés:**
-- `src/domains/terminal.ts`
+#### 4. Remove old constants file
+**Status:** PENDING
+**Files:** `src/old/constants.ts`
 
-**Description:**
-Le code détecte Fish shell dans `SystemLib.detectShell()` mais il n'y a pas de domain Fish.
+**Action:**
+- Once `symlink` command is migrated → delete `src/old/constants.ts`
+- Verify no other files import from `@/old/constants`
 
-**Implémentation:**
+**Verification:**
+```bash
+grep -r "@/old/constants" src/
+```
 
+---
+
+#### 5. Consolidate FileLib/SymlinkLib
+**Status:** PARTIAL DUPLICATION
+**Files:** `src/lib/file.ts`, `src/lib/symlink.ts`
+
+**Current state:**
+- `FileLib` has symlink-related methods (legacy)
+- `SymlinkLib` has new centralized symlink logic
+
+**Action:**
+1. Move ALL symlink logic to `SymlinkLib`
+2. Remove from `FileLib`:
+   - `safeSymlink()`
+   - `isSymLinkContentCorrect()`
+   - Any symlink-specific helpers
+3. Update imports across codebase
+
+---
+
+## 🟢 Version 2.0 - Post-Refactoring Features
+
+### 6. Improve Linux distro detection
+**Priority:** MEDIUM
+**Time:** 30 min
+**Files:** `src/lib/system.ts`
+
+**Current issues:**
+- Only reads `/etc/os-release` ID field
+- No support for derivatives (Pop!_OS, Manjaro, etc.)
+- No fallback mechanism
+
+**Enhancement:**
 ```typescript
-// src/domains/terminal.ts
+getLinuxDistro(): string | null {
+  // 1. Check /etc/os-release for ID and ID_LIKE
+  // 2. Map derivatives:
+  //    - pop, linuxmint, zorin, elementary → ubuntu
+  //    - manjaro, endeavouros, garuda → arch
+  // 3. Fallback to lsb_release command
+  // 4. Return parent distro for unsupported derivatives
+}
+```
 
-export const fishDomain: Domain = {
+**Benefits:**
+- Better multi-distro support
+- Maps to existing package manager configs
+- More robust detection
+
+---
+
+### 7. Add Fish shell suggestion
+**Priority:** LOW
+**Time:** 10 min
+**Files:** `src/suggestions.ts`
+
+**Implementation:**
+```typescript
+const fishSuggestion: Suggestion = {
   name: 'fish',
   type: 'terminal',
-  distro: null,
-  symlinkPaths: {
+  hint: 'Fish shell is not installed',
+  pathsToCheck: {
     linux: ['~/.config/fish/config.fish', '~/.config/fish/functions'],
     macos: ['~/.config/fish/config.fish', '~/.config/fish/functions'],
   },
 };
-
-// Ajouter à l'export en bas du fichier
 ```
 
-**Tests à faire:**
-- Utilisateur avec Fish → init détecte Fish
-- Symlinks créés vers `~/.config/fish/config.fish`
+**Action:**
+- Add to `suggestions.ts`
+- Export in suggestions object
+- Test detection on Fish installations
 
 ---
 
-### 6. Meilleure gestion erreurs
-**Priorité:** BASSE
-**Temps estimé:** 1-2h
+### 8. Migration command for old structure
+**Priority:** MEDIUM
+**Time:** 1-2h
+**Files:** Create `src/commands/migrate.ts`
 
-**Description:**
-Améliorer les messages d'erreur et le logging.
+**Purpose:** Help users migrate from old domain-based structure to new OS-based
 
-**Implémentations suggérées:**
-
-#### A. Codes d'erreur structurés
+**Logic:**
 ```typescript
-// src/lib/errors.ts (nouveau fichier)
-
-export enum DotsxErrorCode {
-  GIT_NOT_INSTALLED = 'GIT_NOT_INSTALLED',
-  GIT_REMOTE_NOT_FOUND = 'GIT_REMOTE_NOT_FOUND',
-  SYMLINK_SOURCE_NOT_FOUND = 'SYMLINK_SOURCE_NOT_FOUND',
-  BACKUP_FAILED = 'BACKUP_FAILED',
-  PERMISSION_DENIED = 'PERMISSION_DENIED',
-}
-
-export class DotsxError extends Error {
-  constructor(
-    public code: DotsxErrorCode,
-    message: string,
-    public suggestion?: string,
-  ) {
-    super(message);
-    this.name = 'DotsxError';
-  }
-}
-
-// Usage:
-throw new DotsxError(
-  DotsxErrorCode.GIT_NOT_INSTALLED,
-  'Git is not installed',
-  'Install git: sudo apt install git'
-);
-```
-
-#### B. Mode debug avec stack traces
-```typescript
-// src/lib/logger.ts (nouveau fichier)
-
-export const logger = {
-  debug(message: string) {
-    if (process.env.DOTSX_DEBUG === '1') {
-      console.log(`[DEBUG] ${message}`);
-    }
-  },
-
-  error(error: Error) {
-    log.error(error.message);
-
-    if (process.env.DOTSX_DEBUG === '1') {
-      console.error(error.stack);
-    }
+export const migrateCommand = {
+  async execute() {
+    // 1. Detect old structure (~/.dotsx/ide/, ~/.dotsx/terminal/, etc.)
+    // 2. Determine current OS
+    // 3. Create new structure (~/.dotsx/<os>/)
+    // 4. Move symlinks:
+    //    - ide/vscode/* → <os>/symlinks/__home__/.config/Code/
+    //    - terminal/zsh/* → <os>/symlinks/__home__/.zshrc
+    // 5. Move package configs:
+    //    - os/debian/apt.txt → <os>/packages/dotsx.packages.json (merged)
+    // 6. Keep bin/ as-is (already correct location)
+    // 7. Backup old structure to ~/.dotsx.old/
+    // 8. Recreate all symlinks
   },
 };
-
-// Usage:
-try {
-  await dangerousOperation();
-} catch (error) {
-  logger.error(error);
-}
 ```
 
-**Variable d'environnement:**
+**Benefits:**
+- Smooth transition for existing users
+- Preserves all configs and history
+- Automatic validation after migration
+
+---
+
+### 9. Enhanced backup validation
+**Priority:** LOW
+**Time:** 30 min
+**Files:** `src/lib/backup.ts`
+
+**Enhancements:**
+1. Add `BackupLib.validateBackups()` - scan for corrupted backups
+2. Add `BackupLib.listBackups(path)` - show backup history for file
+3. Add `BackupLib.restoreBackup(path, timestamp)` - manual restore
+
+**CLI integration:**
 ```bash
-DOTSX_DEBUG=1 dotsx  # Affiche stack traces
+dotsx backup
+  → List all backups
+  → Restore specific backup
+  → Validate backup integrity
 ```
 
 ---
 
-## 📊 Résumé des priorités
+## 🧪 Testing & Documentation
 
-| Version | Items | Temps total | Status |
-|---------|-------|-------------|--------|
-| v1.0 | 6 | - | ✅ 100% |
-| v1.1 | 2 | ~50 min | ⏳ 0% |
-| v1.2 | 4 | ~6h | 📋 Backlog |
+### 10. Unit tests for new architecture
+**Priority:** HIGH
+**Time:** 3-4h
+**Files:** `tests/unit/lib/*.test.ts`
+
+**Critical tests:**
+
+#### A. `tests/unit/lib/constants.test.ts`
+```typescript
+describe('resolveDotsxOsPath', () => {
+  test('resolves debian paths correctly', () => {
+    const paths = resolveDotsxOsPath('debian');
+    expect(paths.baseOs).toBe('/home/user/.dotsx/debian');
+    expect(paths.symlinks).toBe('/home/user/.dotsx/debian/symlinks');
+  });
+
+  test('resolves arch paths correctly', () => {
+    const paths = resolveDotsxOsPath('arch');
+    expect(paths.packagesManager).toBe('/home/user/.dotsx/arch/packages');
+  });
+});
+```
+
+#### B. `tests/unit/suggestions.test.ts`
+```typescript
+describe('getSuggestionsByOs', () => {
+  test('returns linux suggestions', () => {
+    const suggestions = getSuggestionsByOs('linux');
+    expect(suggestions.map(s => s.name)).toContain('vscode');
+    expect(suggestions.map(s => s.name)).toContain('zsh');
+  });
+});
+
+describe('getSuggestionsByType', () => {
+  test('filters IDE suggestions', () => {
+    const suggestions = getSuggestionsByType('ide');
+    expect(suggestions.every(s => s.type === 'ide')).toBe(true);
+  });
+});
+```
+
+#### C. `tests/unit/lib/symlink.test.ts`
+```typescript
+describe('SymlinkLib.safeSymlink', () => {
+  test('creates backup before symlinking', async () => {
+    // Mock fs operations
+  });
+
+  test('skips if symlink already correct', async () => {
+    // Mock fs operations
+  });
+});
+```
 
 ---
 
-## 🎯 Prochaines étapes recommandées
+### 11. Update CLAUDE.md examples
+**Priority:** MEDIUM
+**Time:** 30 min
+**Files:** `.claude/CLAUDE.md`
 
-1. **Court terme (1h)** : Finir v1.1
-   - Backup quotidien automatique
-   - Améliorer détection distro
-
-2. **Moyen terme (3-4h)** : Tests unitaires de base
-   - FileLib tests
-   - GitLib tests
-
-3. **Long terme (6h+)** : v1.2 complète
-   - README complet
-   - Support Fish
-   - Gestion erreurs avancée
+**Actions:**
+- ✅ Architecture section updated
+- ✅ Code interfaces documented
+- ✅ Workflows updated
+- [ ] Add migration guide for contributors
+- [ ] Add troubleshooting for common refactoring issues
 
 ---
 
-## 💡 Idées futures (non planifiées)
+### 12. Update README.md for users
+**Priority:** LOW
+**Time:** 1h
+**Files:** `README.md`
 
-- Commande `dotsx migrate` pour changer de machine
-- Support Windows (WSL + PowerShell)
-- Interface web pour gérer configs
-- Plugin system pour domaines custom
-- Export/import de configs sans Git
-- Chiffrement des configs sensibles
-- Commande `dotsx diff` pour comparer machines
-- Support Nix package manager
+**Current state:** README still shows old structure
+
+**Required updates:**
+1. Update directory structure diagram to show OS-based layout
+2. Update quickstart examples
+3. Update command examples (especially symlink/packages)
+4. Add migration guide from v1.0 to v2.0
+5. Update package manager config examples
+
+---
+
+## 📊 Summary
+
+| Category | Items | Time | Status |
+|----------|-------|------|--------|
+| ✅ Refactoring Complete | 7 | - | 100% |
+| 🟡 Command Migration | 2 | 1-2h | 0% |
+| 🔴 Critical Cleanup | 2 | 1h | 0% |
+| 🟢 Post-Refactoring | 6 | 4-5h | 0% |
+| 🧪 Testing & Docs | 3 | 5h | 0% |
+| **TOTAL** | **20** | **11-13h** | **35%** |
+
+---
+
+## 🎯 Recommended Execution Order
+
+### Phase 1: Complete Migration (HIGH PRIORITY - 1-2h remaining)
+1. ✅ Migrate `symlink` command (COMPLETED with enhancements)
+2. ⏳ Create `check` command (partially implemented, needs standalone command)
+3. ⏳ Create `packages` command (needs implementation)
+4. ⏳ Remove `old/constants.ts` (can be done after check/packages)
+5. ⏳ Consolidate FileLib/SymlinkLib (low priority cleanup)
+
+### Phase 2: Polish & Extend (MEDIUM - 3-4h)
+6. Improve distro detection
+7. Add Fish shell suggestion
+8. Create migration command
+9. Enhanced backup validation
+
+### Phase 3: Quality & Docs (5-6h)
+10. Unit tests for new architecture
+11. Update CLAUDE.md
+12. Update README.md
+
+---
+
+## 💡 Future Ideas (Not Planned)
+
+- Multi-OS config in single repo (e.g., `~/.dotsx/debian/` + `~/.dotsx/macos/`)
+- Web UI for managing configs
+- `dotsx diff` - compare configs across machines
+- Encrypted configs support (for API keys, etc.)
+- Plugin system for custom suggestions
+- Windows support (WSL + PowerShell)
+- Nix package manager integration
 - Auto-update checker
 
 ---
 
-**Note:** Ce fichier est maintenu à jour après chaque release. Dernière mise à jour : v1.0 (2025-09-30)
+**Note:** This TODO reflects the ongoing architecture refactoring (v1.5 → v2.0). Priority is completing command migration before adding new features.

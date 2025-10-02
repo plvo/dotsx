@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { log } from '@clack/prompts';
 import { FileLib } from '../lib/file';
-import { BACKUP_METADATA_PATH, BACKUP_PATH, MAX_BACKUPS_PER_FILE } from './constants';
+import { BACKUP_LIMIT_PER_FILE, BACKUP_METADATA_PATH, BACKUP_PATH } from './constants';
 
 /**
  * Backup metadata structure
@@ -49,8 +49,7 @@ export const BackupLib = {
    */
   saveLastBackupDate(dotsxRelativePath: string, timestamp: string): void {
     try {
-      // Ensure backup directory exists
-      FileLib.createDirectory(BACKUP_PATH);
+      FileLib.Directory.create(BACKUP_PATH);
 
       let metadata: BackupMetadata = {};
 
@@ -101,7 +100,7 @@ export const BackupLib = {
         return [];
       }
 
-      const allFiles = FileLib.readDirectory(backupDir);
+      const allFiles = FileLib.Directory.read(backupDir);
       const backupFiles = allFiles
         .filter((file) => {
           const pattern = new RegExp(`^${fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.\\d{14}\\.dotsx\\.backup$`);
@@ -127,9 +126,9 @@ export const BackupLib = {
    * Cleanup old backups for a given dotsxRelativePath
    * Deletes backups beyond the limit
    * @param dotsxRelativePath - Relative path from DOTSX_PATH
-   * @param maxBackups - Maximum number of backups to keep (default: MAX_BACKUPS_PER_FILE)
+   * @param maxBackups - Maximum number of backups to keep (default: BACKUP_LIMIT_PER_FILE)
    */
-  cleanupOldBackups(dotsxRelativePath: string, maxBackups: number = MAX_BACKUPS_PER_FILE): void {
+  cleanupOldBackups(dotsxRelativePath: string, maxBackups: number = BACKUP_LIMIT_PER_FILE): void {
     try {
       const backupFiles = this.getExistingBackups(dotsxRelativePath);
 
@@ -138,9 +137,9 @@ export const BackupLib = {
 
       for (const backup of backupsToDelete) {
         if (FileLib.isFile(backup.fullPath)) {
-          FileLib.deleteFile(backup.fullPath);
+          FileLib.File.deleteFile(backup.fullPath);
         } else if (FileLib.isDirectory(backup.fullPath)) {
-          FileLib.deleteDirectory(backup.fullPath);
+          FileLib.Directory.deleteDirectory(backup.fullPath);
         }
       }
 
@@ -163,12 +162,12 @@ export const BackupLib = {
     // Mirror dotsx structure in backup
     const backupPath = path.join(BACKUP_PATH, `${dotsxRelativePath}.${timestamp}.dotsx.backup`);
 
-    FileLib.createDirectory(path.dirname(backupPath));
+    FileLib.Directory.create(path.dirname(backupPath));
 
     if (FileLib.isFile(systemPath)) {
-      FileLib.copyFile(systemPath, backupPath);
+      FileLib.File.copy(systemPath, backupPath);
     } else if (FileLib.isDirectory(systemPath)) {
-      FileLib.copyDirectory(systemPath, backupPath);
+      FileLib.Directory.copy(systemPath, backupPath);
     }
 
     // Cleanup old backups after creating a new one
@@ -189,15 +188,15 @@ export const BackupLib = {
     // 1. Check if we already have 7 backups
     const existingBackups = this.getExistingBackups(dotsxRelativePath);
 
-    // 2. If we have MAX_BACKUPS_PER_FILE, delete the oldest one before creating new backup
-    if (existingBackups.length >= MAX_BACKUPS_PER_FILE) {
+    // 2. If we have BACKUP_LIMIT_PER_FILE, delete the oldest one before creating new backup
+    if (existingBackups.length >= BACKUP_LIMIT_PER_FILE) {
       const oldestBackup = existingBackups[existingBackups.length - 1];
       if (oldestBackup) {
         if (FileLib.isFile(oldestBackup.fullPath)) {
-          FileLib.deleteFile(oldestBackup.fullPath);
+          FileLib.File.deleteFile(oldestBackup.fullPath);
           log.info(`Deleted oldest backup: ${oldestBackup.name}`);
         } else if (FileLib.isDirectory(oldestBackup.fullPath)) {
-          FileLib.deleteDirectory(oldestBackup.fullPath);
+          FileLib.Directory.deleteDirectory(oldestBackup.fullPath);
           log.info(`Deleted oldest backup: ${oldestBackup.name}`);
         }
       }
@@ -219,7 +218,7 @@ export const BackupLib = {
     if (!FileLib.isDirectory(dir)) return [];
 
     const results: string[] = [];
-    const items = FileLib.readDirectory(dir);
+    const items = FileLib.Directory.read(dir);
 
     for (const item of items) {
       const fullPath = path.join(dir, item);
@@ -278,7 +277,7 @@ export const BackupLib = {
       if (dotsxPath.startsWith(symlinkDir)) {
         const relativePath = path.relative(symlinkDir, dotsxPath);
         // Convert __home__ to actual home directory
-        return FileLib.expandPath(relativePath);
+        return FileLib.expand(relativePath);
       }
 
       // Case 2: IDE/Terminal → find corresponding system symlink via domains
@@ -292,7 +291,7 @@ export const BackupLib = {
         const symlinkPaths = domain.symlinkPaths[family] || [];
 
         for (const declaredPath of symlinkPaths) {
-          const systemPath = FileLib.expandPath(declaredPath);
+          const systemPath = FileLib.expand(declaredPath);
 
           // Check if this systemPath is a symlink pointing to dotsx
           if (FileLib.isSymLink(systemPath)) {
@@ -329,13 +328,6 @@ export const BackupLib = {
    */
   async performDailyBackupCheck(): Promise<void> {
     try {
-      // Skip if disabled
-      if (process.env.DOTSX_NO_AUTO_BACKUP === '1') {
-        return;
-      }
-
-      const { DOTSX_PATH } = require('./constants');
-
       // ✅ Scan ALL files in ~/.dotsx recursively (files only, no directories)
       const allFiles = this.scanFilesOnly(DOTSX_PATH);
 
@@ -350,7 +342,7 @@ export const BackupLib = {
           const systemPath = this.resolveSystemPath(dotsxFilePath);
 
           // Only backup if system path exists
-          if (systemPath && FileLib.isPathExists(systemPath)) {
+          if (systemPath && FileLib.isExists(systemPath)) {
             this.createDailyBackup(dotsxRelativePath, systemPath);
             backupsCreated++;
           }
@@ -362,10 +354,7 @@ export const BackupLib = {
         log.success(`✅ Created ${backupsCreated} daily backup(s)`);
       }
     } catch (error) {
-      // Silent failure - don't block startup
-      if (process.env.DOTSX_DEBUG === '1') {
-        log.warning(`Daily backup check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+      log.warning(`Daily backup check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
 };

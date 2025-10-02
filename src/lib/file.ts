@@ -16,7 +16,20 @@ export namespace FileLib {
     return inputPath;
   };
 
-  export const display = (inputPath: string): string => inputPath.replace(os.homedir(), '__home__');
+  export const display = (inputPath: string): string => inputPath.split('__home__/')[1] ?? inputPath;
+
+  /**
+   * @example toDotsxPath('/home/user/.zshrc', '/home/user/.dotsx/symlinks') // '/home/user/.dotsx/symlinks/__home__/.zshrc'
+   * toDotsxPath('/home/user/projects', '/home/user/.dotsx/symlinks') // '/home/user/.dotsx/symlinks/home/user/projects'
+   */
+  export const toDotsxPath = (systemPath: string, symlinkBase: string): string => {
+    const home = os.homedir();
+    if (systemPath.startsWith(home)) {
+      const relativePath = systemPath.slice(home.length);
+      return path.resolve(symlinkBase, '__home__', relativePath.startsWith('/') ? relativePath.slice(1) : relativePath);
+    }
+    return path.resolve(symlinkBase, systemPath.startsWith('/') ? systemPath.slice(1) : systemPath);
+  };
 
   export namespace File {
     export const isExecutable = (p: string) => isFile(p) && (fs.statSync(expand(p)).mode & 0o100) !== 0;

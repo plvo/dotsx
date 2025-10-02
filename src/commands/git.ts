@@ -1,6 +1,6 @@
 import { confirm, log, select, spinner, text } from '@clack/prompts';
+import { DOTSX_PATH } from '@/lib/constants';
 import { GitLib } from '@/lib/git';
-import { DOTSX_PATH } from '@/old/constants';
 import { gitCloneCommand } from './git-clone';
 import { symlinkCommand } from './symlink';
 
@@ -142,23 +142,6 @@ export const gitCommand = {
         log.info('   git commit');
         log.info('   dotsx check (to validate)');
         return;
-      }
-
-      // Validate structure
-      log.info('Validating repository structure...');
-      const validation = GitLib.validateDotsxStructure(DOTSX_PATH);
-      if (!validation.isValid) {
-        log.warn(`⚠️  Missing directories: ${validation.missingDirectories.join(', ')}`);
-        const shouldRepair = await confirm({
-          message: 'Create missing directories?',
-          initialValue: true,
-        });
-
-        if (shouldRepair) {
-          log.info('Run: dotsx repair');
-        }
-      } else {
-        log.success('✅ Structure valid');
       }
 
       // Check symlinks

@@ -9,7 +9,7 @@ import { binCommand } from './commands/bin';
 import { initCommand } from './commands/init';
 import { packageCommand } from './commands/packages';
 // import { recoverCommand } from './commands/recover';
-// import { symlinkCommand } from './commands/symlink';
+import { symlinkCommand } from './commands/symlink';
 import { ConsoleLib } from './lib/console';
 import { resolveDotsxOsPath } from './lib/constants';
 import { FileLib } from './lib/file';
@@ -61,10 +61,10 @@ async function main() {
     }
 
     // if (action === 'doctor') await doctorCommand.execute();
-    else if (action === 'pkg') await packageCommand.execute(osInfo.distro || osInfo.family, dotsxPath.packagesManager);
-    // else if (action === 'symlink') await symlinkCommand.execute();
+    if (action === 'pkg') await packageCommand.execute(osInfo.distro || osInfo.family, dotsxPath.packagesManager);
+    else if (action === 'symlink') await symlinkCommand.execute(dotsxPath);
+    else if (action === 'bin') await binCommand.execute(dotsxPath);
     // else if (action === 'recover') await recoverCommand.execute();
-    // else if (action === 'bin') await binCommand.execute();
     // else if (action === 'git') await gitCommand.execute();
   }
 }
