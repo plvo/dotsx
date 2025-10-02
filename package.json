@@ -1,7 +1,7 @@
 {
   "name": "dotsx",
   "description": "A CLI tool for managing dotfiles",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "author": "plvo <plvdev@proton.me>",
   "homepage": "https://github.com/plvo/dotsx",
   "license": "MIT",
