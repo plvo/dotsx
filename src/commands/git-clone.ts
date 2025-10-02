@@ -17,17 +17,18 @@ export const gitCloneCommand = {
       const isRepo = await GitLib.isGitRepository(DOTSX_PATH);
 
       if (isRepo) {
-        log.error(`${DOTSX_PATH} is already a Git repository.`);
+        log.warn(`${DOTSX_PATH} is already a Git repository.`);
         log.info('💡 Use "🔗 Manage remote" to connect to a different repository');
         return;
       }
 
-      log.error(`${DOTSX_PATH} already exists and contains files.`);
-      log.warn('⚠️  Cannot clone - this would overwrite your existing configuration!');
-      log.info('💡 To use an existing remote repository:');
-      log.info('   1. Backup your current ~/.dotsx if needed');
-      log.info('   2. Use "🔧 Git" → "🆕 Create new repository" to initialize git');
-      log.info('   3. Then use "🔗 Manage remote" to connect to your remote');
+      log.warn(`${DOTSX_PATH} already exists and contains files.
+⚠️  Cannot clone - this would overwrite your existing configuration!
+💡 To use an existing remote repository:
+1. Backup your current ~/.dotsx if needed
+2. Use "🔧 Git" → "🆕 Create new repository" to initialize git
+3. Then use "🔗 Manage remote" to connect to your remote
+`);
       return;
     }
 

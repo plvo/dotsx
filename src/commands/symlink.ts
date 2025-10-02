@@ -5,7 +5,16 @@ import { FileLib } from '@/lib/file';
 import { SuggestionLib } from '@/lib/suggestion';
 import { SymlinkLib } from '@/lib/symlink';
 import { SystemLib } from '@/lib/system';
-import type { AllLinks, Link } from '@/types';
+
+interface Link {
+  systemPath: string;
+  dotsxPath: string;
+}
+
+interface AllLinks {
+  correctSymlinks: Array<Link>;
+  incorrectSymlinks: Array<Link>;
+}
 
 export const symlinkCommand = {
   async execute(dotsxOsPath: DotsxOsPath) {
@@ -22,7 +31,7 @@ export const symlinkCommand = {
 
     if (action === 'add') await this.addLink(dotsxOsPath);
     else if (action === 'suggestions') await this.manageSuggestions(dotsxOsPath);
-    else if (action === 'sync') await this.syncLinks(allLinks, dotsxOsPath);
+    else if (action === 'sync') await this.syncLinks(allLinks);
   },
 
   async addLink(dotsxOsPath: DotsxOsPath) {
@@ -93,7 +102,7 @@ export const symlinkCommand = {
     outro(`✅ Added ${selectedPaths.length} symlink(s)`);
   },
 
-  async syncLinks(links: AllLinks, dotsxOsPath: DotsxOsPath) {
+  async syncLinks(links: AllLinks) {
     if (links.incorrectSymlinks.length === 0) {
       log.success('All links correct');
       return;

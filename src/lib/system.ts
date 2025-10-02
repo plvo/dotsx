@@ -11,13 +11,6 @@ export interface OsInfo {
   release?: string | null;
 }
 
-export interface SystemInfo extends OsInfo {
-  arch: string;
-  hostname: string;
-  shell: string;
-  rcFile: string;
-}
-
 export namespace SystemLib {
   export function detectShell(): string {
     return process.env.SHELL ? path.basename(process.env.SHELL) : 'unknown';
@@ -91,7 +84,7 @@ export namespace SystemLib {
     }
   }
 
-  export function getSystemInfo(): SystemInfo {
+  export function getSystemInfo() {
     return {
       ...getOsInfo(),
       arch: os.arch(),
