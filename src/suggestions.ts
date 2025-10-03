@@ -9,10 +9,6 @@ export interface Suggestion {
   pathsToCheck: Partial<Record<OsFamily | KnownLinuxDistro, string[]>>;
 }
 
-export function getSuggestionsByOs(os: OsFamily | KnownLinuxDistro) {
-  return Object.values(suggestions).filter((suggestion) => suggestion.pathsToCheck[os]);
-}
-
 const vscodeSuggestion: Suggestion = {
   name: 'vscode',
   type: 'ide',
@@ -103,7 +99,7 @@ const claudeCodeSuggestion: Suggestion = {
   },
 };
 
-const suggestions = {
+export const suggestions = {
   vscodeSuggestion,
   cursorSuggestion,
   zshSuggestion,

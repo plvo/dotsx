@@ -1,5 +1,6 @@
 import { spinner } from '@clack/prompts';
-import { getSuggestionsByOs, type Suggestion } from '@/suggestions';
+import { type Suggestion, suggestions } from '@/suggestions';
+import type { KnownLinuxDistro, OsFamily } from '@/types';
 import { FileLib } from './file';
 import type { OsInfo } from './system';
 
@@ -53,15 +54,15 @@ export namespace SuggestionLib {
   /**
    * Get all suggestions available for current OS
    */
-  export function getAvailableSuggestions(osInfo: OsInfo): Suggestion[] {
-    return getSuggestionsByOs(osInfo.family);
+  export function getSuggestionsByOs(os: OsFamily | KnownLinuxDistro) {
+    return Object.values(suggestions).filter((suggestion) => suggestion.pathsToCheck[os]);
   }
 
   /**
    * Get all existing suggested paths for current OS
    */
   export function getAllExistingPaths(osInfo: OsInfo): Record<string, FoundPath[]> {
-    const availableSuggestions = getAvailableSuggestions(osInfo);
+    const availableSuggestions = getSuggestionsByOs(osInfo.family);
     return getExistingSuggestedPaths(availableSuggestions, osInfo);
   }
 
