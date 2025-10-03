@@ -161,7 +161,7 @@ export namespace GitLib {
 
   export async function getAheadBehindCount(dirPath: string): Promise<{ ahead: number; behind: number }> {
     try {
-      await execAsync('git fetch --dry-run', { cwd: dirPath });
+      await execAsync('git fetch', { cwd: dirPath });
       const { stdout } = await execAsync('git rev-list --left-right --count HEAD...@{upstream}', { cwd: dirPath });
       const [ahead, behind] = stdout.trim().split('\t').map(Number);
       return { ahead: ahead || 0, behind: behind || 0 };

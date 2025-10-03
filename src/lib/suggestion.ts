@@ -41,7 +41,7 @@ export namespace SuggestionLib {
       });
 
       s.stop(
-        `Found ${Object.values(existingPaths).flat().length} existing paths based on ${osInfo.family} ${osInfo.distro}`,
+        `Found ${Object.values(existingPaths).flat().length} existing suggested paths based on ${osInfo.family} ${osInfo.distro}`,
       );
       return existingPaths;
     } catch (error) {

@@ -1,7 +1,6 @@
-import { confirm, log, select, spinner, text } from '@clack/prompts';
+import { confirm, isCancel, log, outro, select, spinner, text } from '@clack/prompts';
 import { DOTSX_PATH, type DotsxOsPath } from '@/lib/constants';
 import { GitLib } from '@/lib/git';
-import { gitCloneCommand } from './git-clone';
 import { symlinkCommand } from './symlink';
 
 export const gitCommand = {
@@ -15,22 +14,13 @@ export const gitCommand = {
     const isRepo = await GitLib.isGitRepository(DOTSX_PATH);
 
     if (!isRepo) {
-      const choice = await select({
-        message: 'DotsX directory is not a Git repository. How would you like to proceed?',
-        options: [
-          { value: 'new', label: '🆕 Create new repository', hint: 'Initialize a new local Git repository' },
-          {
-            value: 'clone',
-            label: '🔗 Connect to existing repository',
-            hint: 'Clone from an existing remote repository',
-          },
-        ],
+      const confirmNewRepo = await confirm({
+        message: 'DotsX directory is not a Git repository. Do you want to create a new repository?',
+        initialValue: true,
       });
 
-      if (choice === 'new') {
-        await this.createNewRepository();
-      } else if (choice === 'clone') {
-        await gitCloneCommand.execute();
+      if (confirmNewRepo) {
+        await this.createWithRemoteAtomic();
       }
       return;
     }
@@ -131,20 +121,14 @@ export const gitCommand = {
       await GitLib.pullFromRemote(DOTSX_PATH);
       s.stop('✅ Pulled successfully');
 
-      // Check for conflicts
       const hasConflicts = await GitLib.hasConflicts(DOTSX_PATH);
       if (hasConflicts) {
         const conflictedFiles = await GitLib.getConflictedFiles(DOTSX_PATH);
-        log.error('🚨 Git conflicts detected!');
-        log.warn(`Conflicted files:\n${conflictedFiles.map((f) => `  - ${f}`).join('\n')}`);
-        log.info('💡 Resolve conflicts manually, then run:');
-        log.info('   git add .');
-        log.info('   git commit');
-        log.info('   dotsx check (to validate)');
+        log.error(`Git conflicts detected:\n${conflictedFiles.map((f) => `  - ${f}`).join('\n')}`);
+        log.info('💡 Resolve conflicts manually, then run:\n\tgit add .\n\tgit commit\n\tgit push');
         return;
       }
 
-      // Check symlinks
       log.info('Checking symlinks...');
       const links = await symlinkCommand.checkStatus(dotsxOsPath);
       if (links.incorrectSymlinks.length > 0) {
@@ -154,7 +138,7 @@ export const gitCommand = {
         });
 
         if (shouldFix) {
-          await symlinkCommand.syncLinks(links, dotsxOsPath);
+          await symlinkCommand.syncLinks(links);
         }
       } else {
         log.success('✅ All symlinks correct');
@@ -166,7 +150,6 @@ export const gitCommand = {
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-      // Detect merge conflicts in error message
       if (errorMessage.includes('CONFLICT') || errorMessage.includes('merge')) {
         log.error('Git conflict detected during merge!');
         log.warn('💡 Resolve conflicts manually by running git pull --rebase, and then run dotsx');
@@ -196,35 +179,10 @@ export const gitCommand = {
     }
   },
 
-  async createNewRepository() {
-    const shouldAddRemote = await confirm({
-      message: 'Do you want to connect this to a remote repository?',
-      initialValue: true,
-    });
-
-    if (!shouldAddRemote) {
-      const s = spinner();
-      s.start('Initializing local Git repository...');
-      try {
-        await GitLib.initRepository(DOTSX_PATH);
-        await GitLib.addAndCommit(DOTSX_PATH, 'feat: initial DotsX configuration');
-        s.stop('✅ Local repository created');
-        log.success('Git repository initialized (local only)');
-      } catch (error) {
-        s.stop('❌ Failed to initialize repository');
-        log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-      return;
-    }
-
-    // Atomic flow: get URL → check/create remote → init → add remote → push
-    await this.createWithRemoteAtomic();
-  },
-
   async createWithRemoteAtomic() {
     // Step 1: Get remote URL
     const remoteUrl = await text({
-      message: 'Enter the remote repository URL (SSH only):',
+      message: 'Please provide the SSH URL for the new remote repository:',
       placeholder: 'git@github.com:username/dotsx-config.git',
       validate: (value) => {
         if (!value) return 'Remote URL is required';
@@ -250,29 +208,28 @@ export const gitCommand = {
       const remoteExists = await GitLib.checkRemoteExists(remoteUrl);
 
       if (!remoteExists) {
-        s.stop('⚠️  Remote repository does not exist');
+        s.stop('  Remote repository does not exist');
 
         // Check if it's a GitHub URL and offer to create
         const repoInfo = GitLib.extractRepoInfoFromUrl(remoteUrl);
         if (repoInfo && GitLib.isGitHubUrl(remoteUrl)) {
           const shouldCreate = await confirm({
-            message: `Repository ${repoInfo.owner}/${repoInfo.repo} not found. Create it on GitHub?`,
+            message: `Repository ${repoInfo.owner}/${repoInfo.repo} not found. Create it on GitHub and push the first commit?`,
             initialValue: true,
           });
 
           if (shouldCreate) {
             const isGhInstalled = await GitLib.isGhInstalled();
             if (!isGhInstalled) {
-              log.error('GitHub CLI (gh) is not installed.');
-              log.info('💡 Install it: https://cli.github.com/');
-              log.info('Or create the repository manually on GitHub and try again.');
+              log.error(
+                `GitHub CLI (gh) is not installed.\n\t💡 Install it: https://cli.github.com/\n\tOr create the repository manually on GitHub and try again.`,
+              );
               return;
             }
 
             const isAuthenticated = await GitLib.isGhAuthenticated();
             if (!isAuthenticated) {
-              log.error('GitHub CLI is not authenticated.');
-              log.info('💡 Run: gh auth login');
+              log.error('GitHub CLI is not authenticated.\n\t💡 Run: gh auth login');
               return;
             }
 
@@ -281,9 +238,8 @@ export const gitCommand = {
               initialValue: true,
             });
 
-            if (typeof isPrivate !== 'boolean') {
-              log.error('Invalid response. Please make a valid choice.');
-              return;
+            if (isCancel(isPrivate)) {
+              return outro('Creating GitHub repository cancelled');
             }
 
             s.start('Creating GitHub repository...');
@@ -294,9 +250,9 @@ export const gitCommand = {
               // Wait a bit for GitHub to fully create the repo
               await new Promise((resolve) => setTimeout(resolve, 2000));
             } catch (error) {
-              s.stop('❌ Failed to create repository');
-              log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-              log.info('💡 Create the repository manually on GitHub and try again.');
+              s.stop(
+                `❌ Failed to create repository \n\t💡 Create the repository manually on GitHub and try again.\n\tError: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              );
               return;
             }
           } else {
@@ -304,8 +260,7 @@ export const gitCommand = {
             return;
           }
         } else {
-          log.error('Remote repository does not exist.');
-          log.info('💡 Create the repository first or check the URL.');
+          log.error(`Remote repository does not exist.\n\t💡 Create the repository first or check the URL.`);
           return;
         }
       } else {
@@ -325,12 +280,10 @@ export const gitCommand = {
       await GitLib.pushAndSetUpstream(DOTSX_PATH);
 
       s.stop('✅ Repository created and synced');
-      log.success('🎉 Git repository initialized and connected to remote!');
     } catch (error) {
-      s.stop('❌ Failed');
-      log.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      log.warn('Initialization failed.');
-      log.info('💡 Check your SSH keys and repository permissions.');
+      s.stop(
+        `❌ Failed\n\t💡 Check your SSH keys and repository permissions.\n\tError: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   },
 

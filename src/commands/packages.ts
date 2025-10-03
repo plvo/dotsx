@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import path from 'node:path';
-import { isCancel, log, multiselect, select, spinner } from '@clack/prompts';
+import { isCancel, log, multiselect, outro, select, spinner } from '@clack/prompts';
 import { ConsoleLib } from '@/lib/console';
 import { FileLib } from '@/lib/file';
 import { getPackageManagerConfig, type PackageManager } from '@/packages';
@@ -12,10 +12,7 @@ export const packageCommand = {
 
     const selectedManager = await select({
       message: 'Which package manager do you want to use?',
-      options: packageManagerConfig.map((manager, i) => ({
-        value: i,
-        label: manager.name,
-      })),
+      options: packageManagerConfig.map((manager, i) => ({ value: i, label: manager.name })),
     });
 
     if (isCancel(selectedManager)) {
@@ -35,13 +32,24 @@ export const packageCommand = {
 
     const { installed, notInstalled } = this.handleStatuses(packages, packageManager);
 
+    const options = [
+      ...(notInstalled.length > 0 ? [{ value: 'install', label: '📦 Install packages' }] : []),
+      ...(installed.length > 0 ? [{ value: 'remove', label: '🗑️ Remove packages' }] : []),
+    ];
+
+    if (options.length === 0) {
+      outro(`No actions available. Maybe your ${packageManager.fileList} file is empty.`);
+      return;
+    }
+
     const action = await select({
       message: 'What do you want to do?',
-      options: [
-        ...(notInstalled.length > 0 ? [{ value: 'install', label: '📦 Install packages' }] : []),
-        ...(installed.length > 0 ? [{ value: 'remove', label: '🗑️ Remove packages' }] : []),
-      ],
+      options,
     });
+
+    if (isCancel(action)) {
+      return outro('👋 Packages management cancelled, See you next time!');
+    }
 
     if (action === 'install') await this.handleInstall(notInstalled, packageManager);
     else if (action === 'remove') await this.handleRemove(installed, packageManager);

@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { confirm, groupMultiselect, isCancel, log, outro, spinner } from '@clack/prompts';
+import { confirm, groupMultiselect, isCancel, log, spinner } from '@clack/prompts';
 import type { DotsxOsPath } from '@/lib/constants';
 import { FileLib } from '@/lib/file';
 import { type FoundPath, SuggestionLib } from '@/lib/suggestion';
@@ -27,29 +27,37 @@ export const initCommand = {
       // Wait for the terminal to be ready, this is a workaround to avoid the prompt being canceled
       await new Promise((resolve) => setTimeout(resolve, 1));
 
-      const selectedPaths = await groupMultiselect({
-        message: 'These paths exist on your system, do you want to symlink them with dotsx?',
-        options,
-        required: false,
-      });
+      let selectedPaths: FoundPath[] = [];
 
-      const confirmGit = await confirm({
-        message: 'Would you like to initialize a Git repository? It is highly recommended to save your configuration.',
-        initialValue: true,
-      });
+      if (Object.keys(options).length > 0) {
+        const pathResult = await groupMultiselect({
+          message: 'These paths exist on your system, do you want to symlink them with dotsx?',
+          options,
+          required: false,
+        });
 
-      if (isCancel(selectedPaths) || isCancel(confirmGit)) {
-        log.warn('Initialization cancelled');
-        return outro('👋 See you next time!');
-      }
+        if (!isCancel(pathResult)) {
+          selectedPaths = pathResult;
+        }
+      } 
 
       await this.handleDotsxDirectoryCreation(dotsxPath);
       await this.createPackageManagerFiles(dotsxPath);
       binCommand.writeAliasToRcFile(dotsxPath.binAliases);
       await this.createSymlinksForSelectedPaths(selectedPaths, dotsxPath);
 
+      const confirmGit = await confirm({
+        message: 'Would you like to initialize a Git repository? It is highly recommended to save your configuration.',
+        initialValue: true,
+      });
+
+      if (isCancel(confirmGit)) {
+        log.warn('Git repository initialization cancelled');
+      }
+
       if (confirmGit) {
-        await gitCommand.execute(dotsxPath);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        await gitCommand.createWithRemoteAtomic();
       }
     } catch (error) {
       log.error(`Error initializing: ${error}`);
@@ -76,10 +84,7 @@ export const initCommand = {
   },
 
   async createSymlinksForSelectedPaths(selectedPaths: FoundPath[], dotsxPath: DotsxOsPath) {
-    if (selectedPaths.length === 0) {
-      log.info('No paths selected for symlinking');
-      return;
-    }
+    if (selectedPaths.length === 0) return;
 
     const s = spinner();
     s.start('Creating symlinks...');

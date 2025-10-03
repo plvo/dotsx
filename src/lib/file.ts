@@ -1,9 +1,7 @@
-import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { log } from '@clack/prompts';
-import type { OsInfo } from './system';
 
 export namespace FileLib {
   export const isExists = (p: string) => fs.existsSync(expand(p)) || false;
