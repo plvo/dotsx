@@ -16,7 +16,7 @@ export const initCommand = {
 
       log.info(`🖥️  Initializing on a ${osInfo.family} ${osInfo.distro} ${osInfo.release} system...`);
 
-      const availableSuggestions = SuggestionLib.getAvailableSuggestions(osInfo);
+      const availableSuggestions = SuggestionLib.getSuggestionsByOs(osInfo.family);
       const existingPaths = SuggestionLib.getExistingSuggestedPaths(availableSuggestions, osInfo);
 
       const options = SuggestionLib.buildGroupedOptions<FoundPath>(existingPaths, (path) => ({
@@ -39,7 +39,7 @@ export const initCommand = {
         if (!isCancel(pathResult)) {
           selectedPaths = pathResult;
         }
-      } 
+      }
 
       await this.handleDotsxDirectoryCreation(dotsxPath);
       await this.createPackageManagerFiles(dotsxPath);

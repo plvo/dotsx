@@ -78,15 +78,18 @@ export namespace SymlinkLib {
     FileLib.Directory.create(path.dirname(systemPath));
 
     // Ensure systemPath doesn't exist before creating symlink
-    // (in case it's still there after processing)
-    if (FileLib.isExists(systemPath)) {
-      if (FileLib.isFile(systemPath)) {
-        FileLib.File.deleteFile(systemPath);
-      } else if (FileLib.isDirectory(systemPath)) {
-        FileLib.Directory.deleteDirectory(systemPath);
-      } else if (FileLib.isSymLink(systemPath)) {
+    // Check for broken symlinks first (lstatSync works even on broken symlinks)
+    try {
+      const stats = fs.lstatSync(systemPath);
+      if (stats.isSymbolicLink()) {
         fs.unlinkSync(systemPath);
+      } else if (stats.isFile()) {
+        FileLib.File.deleteFile(systemPath);
+      } else if (stats.isDirectory()) {
+        FileLib.Directory.deleteDirectory(systemPath);
       }
+    } catch {
+      // Path doesn't exist, which is fine
     }
 
     fs.symlinkSync(dotsxPath, systemPath);
