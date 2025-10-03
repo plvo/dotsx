@@ -15,7 +15,7 @@ export const gitCommand = {
 
     if (!isRepo) {
       const confirmNewRepo = await confirm({
-        message: 'DotsX directory is not a Git repository. Do you want to create a new repository?',
+        message: 'dotsx directory is not a Git repository. Do you want to create a new repository?',
         initialValue: true,
       });
 
@@ -270,7 +270,7 @@ export const gitCommand = {
       // Step 3: Init local repository
       s.start('Initializing Git repository...');
       await GitLib.initRepository(DOTSX_PATH);
-      await GitLib.addAndCommit(DOTSX_PATH, 'feat: initial DotsX configuration');
+      await GitLib.addAndCommit(DOTSX_PATH, 'feat: initial dotsx configuration');
 
       // Step 4: Add remote
       await GitLib.addRemote(DOTSX_PATH, 'origin', remoteUrl);

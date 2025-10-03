@@ -84,7 +84,7 @@ export const doctorCommand = {
       issues.push({
         type: 'warning',
         category: 'git',
-        message: 'DotsX is not a Git repository',
+        message: 'dotsx is not a Git repository',
         fixable: false,
       });
       log.message('  💡 Run: dotsx git → Create new repository\n');

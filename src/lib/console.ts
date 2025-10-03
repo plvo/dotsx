@@ -14,9 +14,8 @@ export const ConsoleLib = {
 
     const info = SystemLib.getSystemInfo();
 
-    s.stop(`${info.hostname} system info:
-\t🖥️  ${info.distro} ${info.release} (${info.platform} ${info.arch})
-\t📄 ${info.rcFile} (${info.shell})`);
+    s.stop(`🖥️  ${info.hostname}: ${info.distro} ${info.release} (${info.platform} ${info.arch})`);
+    log.message(`📄 ${info.rcFile} (${info.shell})`);
   },
 
   async printGitInfo() {
@@ -31,8 +30,7 @@ export const ConsoleLib = {
         return;
       }
 
-      let gitStatus = `📁 ${gitInfo.remoteUrl ?? 'Unknown remote'} (🌿 ${gitInfo.currentBranch ?? 'Unknown branch'}) (Last Hash: ${gitInfo.lastCommit?.hash ?? 'Unknown hash'}) 
-\t📝 Last commit: "${gitInfo.lastCommit?.message ?? 'Unknown'}" (${gitInfo.lastCommit?.date ?? 'Unknown date'})`;
+      let gitStatus = '';
 
       if (gitInfo.status) {
         const { ahead, behind, hasUncommittedChanges } = gitInfo.status;
@@ -44,11 +42,17 @@ export const ConsoleLib = {
           if (ahead > 0) statusParts.push(`📤 ${ahead} ahead`);
           if (behind > 0) statusParts.push(`📥 ${behind} behind`);
           if (hasUncommittedChanges) statusParts.push('⚠️  uncommitted changes');
-          gitStatus += `\n\t${statusParts.join(', ')}`;
+          gitStatus += `${statusParts.join(', ')}`;
         }
       }
 
-      s.stop(gitStatus);
+      s.stop(
+        `📁 ${gitInfo.remoteUrl ?? 'Unknown remote'} (🌿 ${gitInfo.currentBranch ?? 'Unknown branch'}) (Last Hash: ${gitInfo.lastCommit?.hash ?? 'Unknown hash'})`,
+      );
+      log.message(
+        `📝 Last commit: "${gitInfo.lastCommit?.message ?? 'Unknown'}" (${gitInfo.lastCommit?.date ?? 'Unknown date'})`,
+      );
+      log.message(gitStatus);
     } catch (_error) {
       s.stop('📦 Git: Error reading repository info');
     }

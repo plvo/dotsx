@@ -18,9 +18,9 @@ export namespace SymlinkLib {
 
   /**
    * Creates a safe symlink with backup.
-   * @param dotsxOsPath - DotsX OS path (e.g., /home/user/.dotsx/ubuntu/symlinks)
+   * @param dotsxOsPath - dotsx OS path (e.g., /home/user/.dotsx/ubuntu/symlinks)
    * @param systemPath - System file path (e.g., /home/user/.zshrc)
-   * @param dotsxPath - DotsX content path (e.g., /home/user/.dotsx/ubuntu/symlinks/__home__/.zshrc)
+   * @param dotsxPath - dotsx content path (e.g., /home/user/.dotsx/ubuntu/symlinks/__home__/.zshrc)
    */
   export function safeSymlink(systemPath: string, dotsxPath: string) {
     const systemExists = FileLib.isExists(systemPath);

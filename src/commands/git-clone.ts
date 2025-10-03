@@ -5,7 +5,7 @@ import { GitLib } from '@/lib/git';
 
 export const gitCloneCommand = {
   async execute() {
-    log.step('🔗 Clone DotsX from Existing Repository');
+    log.step('🔗 Clone dotsx from Existing Repository');
 
     const isGitInstalled = await GitLib.isGitInstalled();
     if (!isGitInstalled) {

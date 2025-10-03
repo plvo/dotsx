@@ -280,7 +280,7 @@ export namespace GitLib {
     try {
       const visibility = isPrivate ? '--private' : '--public';
       const { stdout } = await execAsync(
-        `gh repo create ${repoName} ${visibility} --description "DotsX configuration" --clone=false`,
+        `gh repo create ${repoName} ${visibility} --description "dotsx configuration" --clone=false`,
       );
 
       const match = stdout.match(/https:\/\/github\.com\/[^/]+\/[^\s]+/);

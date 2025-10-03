@@ -13,7 +13,7 @@ import { FileLib } from './lib/file';
 import { SystemLib } from './lib/system';
 
 async function main() {
-  intro('🚀 DotsX CLI');
+  intro('🚀 dotsx');
 
   const osInfo = SystemLib.getOsInfo();
   const dotsxPath = resolveDotsxOsPath(osInfo.distro || osInfo.family);
@@ -24,7 +24,7 @@ async function main() {
 
   if (!isInitialized) {
     const action = await select({
-      message: 'Welcome to DotsX! How do you want to initialize your configuration?',
+      message: 'Welcome to dotsx! How do you want to initialize your configuration?',
       options: [
         { value: 'scratch', label: '🌱 From scratch', hint: 'Create a new ~/.dotsx directory' },
         { value: 'git', label: '🔧 From Git', hint: 'Clone a git repository into ~/.dotsx, `git` must be configured' },
